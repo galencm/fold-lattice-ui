@@ -595,6 +595,7 @@ class TutorialApp(App):
             for i,glworb in enumerate(g):
                 if glworb:
                     #binary = local_tools.rpc('bimg_resized',glworb[binary_key],600)
+                    keys = set(r.hgetall(glworb).keys())
                     for bkey in binary_keys:
                         data = r.hget(glworb, bkey)
                         if data:
@@ -614,8 +615,10 @@ class TutorialApp(App):
                         img.texture = CoreImage(data, ext="jpg").texture
                         a.image_grid.add_widget(img, index=len( a.image_grid.children))
                         Window.size = img.texture_size
+                        Window.size = img.texture_size[0]+100,img.texture_size[1]+100
 
-                #a.keys = keys
+                        print("size set to:", img.texture_size)
+                a.keys = keys
                 a.glworbs = glworbs
             from rectangletest import sequence_status#,sequence_status_img
             filled = [random.randint(0,20) for _ in range(20)]
