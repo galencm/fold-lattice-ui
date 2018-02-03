@@ -614,7 +614,6 @@ class TutorialApp(App):
                         img = ClickableImage(size_hint_y=None,size_hint_x=None,allow_stretch=True,keep_ratio=True)
                         img.texture = CoreImage(data, ext="jpg").texture
                         a.image_grid.add_widget(img, index=len( a.image_grid.children))
-                        Window.size = img.texture_size
                         Window.size = img.texture_size[0]+100,img.texture_size[1]+100
 
                         print("size set to:", img.texture_size)
