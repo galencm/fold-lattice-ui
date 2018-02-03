@@ -30,8 +30,6 @@ import io
 import os
 from kivy.uix.bubble import Bubble
 
-import local_tools
-
 from PIL import Image as PILImage,ImageOps
 from kivy.uix.recycleview import RecycleView
 
@@ -39,6 +37,13 @@ from kivy.uix.bubble import BubbleButton
 from kivy.uix.accordion import Accordion, AccordionItem
 
 import itertools
+from ma_cli import data_models
+
+
+import redis
+r_ip, r_port = data_models.service_connection()
+binary_r = redis.StrictRedis(host=r_ip, port=r_port)
+r = redis.StrictRedis(host=r_ip, port=r_port,decode_responses=True)
 
 Config.read('config.ini')
 kv = """
@@ -539,66 +544,90 @@ def grouper(n, iterable, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
+def bimg_resized(uuid,new_size):
+    import io
+    from PIL import Image
+    contents = binary_r.get(uuid)
+    f = io.BytesIO()
+    f = io.BytesIO(contents)
+    img = Image.open(f)
+    img.thumbnail((new_size,new_size), Image.ANTIALIAS)
+    extension = img.format
+    file = io.BytesIO()
+    img.save(file,extension)
+    img.close()
+    file.seek(0)
+    #return file.getvalue()
+    return file
 
 class TutorialApp(App):
 
     def __init__(self, *args,**kwargs):
         super(TutorialApp, self).__init__()
-        if 'image' in kwargs:
-            self.image = kwargs['image']
-        if 'field' in kwargs:
-            self.image_field = kwargs['field']
+        # if 'image' in kwargs:
+        #     self.image = kwargs['image']
+        # if 'field' in kwargs:
+        #     self.image_field = kwargs['field']
 
     def build(self):
         root = AccordionContainer(orientation='horizontal')
 
-        keys = set()
+        #keys = set()
         glworbs =[]
-        if os.path.isfile(self.image):
-            img = Image(size_hint_y=None,size_hint_x=None, height=40,allow_stretch=True,keep_ratio=True,size_hint=(None,None))
-            img.source=self.image
-            img.size = img.texture_size
-            Window.size = img.texture_size
-        else:
-            binary_key=self.image_field
-           
-            glworbs = local_tools.rpc('from_redis','glworb:*','hash')    
-            #glworb = [g for g in glworbs if g['uuid'] == self.image][0]
+        # if os.path.isfile(self.image):
+        #     img = Image(size_hint_y=None,size_hint_x=None, height=40,allow_stretch=True,keep_ratio=True,size_hint=(None,None))
+        #     img.source=self.image
+        #     img.size = img.texture_size
+        #     Window.size = img.texture_size
+        # else:
+        binary_keys = ["binary_key","binary","image_binary_key"]
 
-            for g in glworbs:
-                [keys.add(s) for s in list(g.keys())]
-            print(keys)
+        glworbs = data_models.enumerate_data(pattern='glworb:*')
 
-            ggs = list(grouper(5,glworbs))
-            for g in ggs:
-                a = ScatterTextWidget()
-                for i,glworb in enumerate(g):
-                    if glworb:
-                        print("{}/{}".format(i,len(glworbs)))
-                        #binary = local_tools.rpc('b64_key',glworb[binary_key])
-                        binary = local_tools.rpc('bimg_resized',glworb[binary_key],600)
+        # for g in glworbs:
+        #     #[keys.add(s) for s in list(g.keys())]
+        #     print(g)
+        # print(keys)
 
-                        data = io.BytesIO()
-                        data = io.BytesIO(binary)
-                        data.seek(0)
+        ggs = list(grouper(5,glworbs))
+        for g in ggs:
+            a = ScatterTextWidget()
+            for i,glworb in enumerate(g):
+                if glworb:
+                    #binary = local_tools.rpc('bimg_resized',glworb[binary_key],600)
+                    for bkey in binary_keys:
+                        data = r.hget(glworb, bkey)
+                        if data:
+                            print("{} has data".format(bkey))
+                            break
+
+                    try:
+                        data = bimg_resized(data, 600)
+                    except OSError:
+                        data = None
+
+                    if data:
+                        # data = io.BytesIO()
+                        # data = io.BytesIO(data)
+                        # data.seek(0)
                         img = ClickableImage(size_hint_y=None,size_hint_x=None,allow_stretch=True,keep_ratio=True)
-                        img.texture = CoreImage(data,ext="jpg").texture
+                        img.texture = CoreImage(data, ext="jpg").texture
                         a.image_grid.add_widget(img, index=len( a.image_grid.children))
                         Window.size = img.texture_size
 
-                    a.keys = keys
-                    a.glworbs = glworbs
-                from rectangletest import sequence_status#,sequence_status_img
-                filled = [random.randint(0,20) for _ in range(20)]
-                file = sequence_status(20,filled,abs(hash(str(g))),width=40,height=600)
+                #a.keys = keys
+                a.glworbs = glworbs
+            from rectangletest import sequence_status#,sequence_status_img
+            filled = [random.randint(0,20) for _ in range(20)]
+            file = sequence_status(20,filled,abs(hash(str(g))),width=40,height=600)
 
-                #file = sequence_status_img(20,filled,hash(str(g)),width=40,height=600)
+            #file = sequence_status_img(20,filled,hash(str(g)),width=40,height=600)
 
-                c = AccordionItemThing(title="zzzz",background_normal=file,background_selected=file)
-                c.thing = a
-                c.add_widget(a)
+            c = AccordionItemThing(title="zzzz",background_normal=file,background_selected=file)
+            c.thing = a
+            c.add_widget(a)
 
-                root.add_widget(c)
+            root.add_widget(c)
         #root.add_widget(AccordionItem(title='foo'))
         #root.add_widget(AccordionItem(title='foo2'))
 
@@ -607,13 +636,9 @@ class TutorialApp(App):
 
 if __name__ == "__main__":
     print(sys.argv)
-    try:
-        image = sys.argv[1]
-        field = sys.argv[2]
-    except:
-        pass
-    #print(image)
-    TutorialApp(image=image,field=field).run()    
-    #TutorialApp().run()
-
-
+    # try:
+    #     image = sys.argv[1]
+    #     field = sys.argv[2]
+    # except:
+    #     pass
+    TutorialApp().run()
