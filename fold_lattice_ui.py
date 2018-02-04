@@ -8,6 +8,7 @@ import random
 import io
 import itertools
 import redis
+from collections import OrderedDict
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -33,6 +34,7 @@ from kivy.uix.bubble import Bubble
 from kivy.uix.bubble import BubbleButton
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.accordion import Accordion, AccordionItem
+from kivy.clock import Clock
 
 from ma_cli import data_models
 
@@ -233,6 +235,105 @@ class AccordionContainer(Accordion):
         super(AccordionContainer, self).__init__(**kwargs)
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
+        self.groups = []
+        self.resize_size = 600
+        self.folded_fold_width = 40
+        self.group_amount = 5
+        self.window_padding = 100
+        self.group_widgets = OrderedDict()
+
+    def populate(self, *args):
+        """Check for glworbs not in folds and
+        add"""
+        print("updating...")
+        binary_keys = ["binary_key", "binary", "image_binary_key"]
+        glworbs = data_models.enumerate_data(pattern='glworb:*')
+        # sort by time using "created" field
+        # sorting will be various criteria
+        # for example: a field containing pagenumbers
+        # for ocr
+        #
+        # color coding may vary depending on criteria
+        # as well
+        glworbs_filtered = []
+        filter_key = "created"
+        for g in glworbs:
+            created = r.hget(g, filter_key)
+            if created:
+                glworbs_filtered.append((g,created))
+
+        # sort list of tuples and then create list of field values
+        glworbs_filtered = sorted(glworbs_filtered, key=lambda x: x[1])
+        glworbs = [g[0] for g in glworbs_filtered]
+
+        groups = list(group_into(self.group_amount, glworbs))
+
+        for group_num, group in enumerate(groups):
+            if group not in self.groups:
+                print("{new} not in groups".format(new=group))
+                # a partial group may now have additional items.
+                # Check if the first item matches and then
+                # remove old partial widget and all
+                # widgets after. Widgets will be repopulated
+                # by new groups
+                for i, g in enumerate(self.groups):
+                    if group[0] == g[0]:
+                        insertion_index = 0
+                        for k, v in self.group_widgets.items():
+                            if insertion_index >= i:
+                                self.remove_widget(self.group_widgets[k])
+                                del self.group_widgets[k]
+                            insertion_index += 1
+
+                group_container = ScatterTextWidget()
+                fold_status = []
+                for glworb_num, glworb in enumerate(group):
+                    if glworb:
+                        keys = set(r.hgetall(glworb).keys())
+                        for bkey in binary_keys:
+                            data = r.hget(glworb, bkey)
+                            if data:
+                                print("{} has data".format(bkey))
+                                break
+                        try:
+                            data = bimg_resized(data, self.resize_size)
+                        except OSError:
+                            data = None
+
+                        if data:
+                            fold_status.append(glworb)
+                            img = ClickableImage(size_hint_y=None,
+                                                 size_hint_x=None,
+                                                 allow_stretch=True,
+                                                 keep_ratio=True)
+                            img.texture = CoreImage(data, ext="jpg").texture
+                            group_container.image_grid.add_widget(img,
+                                                                  index=len(group_container.image_grid.children))
+                            # Window.size = (img.texture_size[0] + self.window_padding,
+                            #                img.texture_size[1] + self.window_padding)
+
+                            print("size set to:", img.texture_size)
+                        else:
+                            fold_status.append(None)
+
+                    group_container.keys = keys
+                    group_container.glworbs = glworbs
+                #sequence_status_img for thumbnails
+                from rectangletest import sequence_status
+                fold_status_image = sequence_status(len(group),
+                                                    fold_status,
+                                                    abs(hash(str(group))),
+                                                    width=self.folded_fold_width,
+                                                    height=self.resize_size)
+                fold = AccordionItemThing(title=str(group_num),
+                                          background_normal=fold_status_image,
+                                          background_selected=fold_status_image)
+                fold.thing = group_container
+                fold.add_widget(group_container)
+                self.add_widget(fold)
+                self.group_widgets[str(group)] = fold
+
+        self.groups = groups
 
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
@@ -291,14 +392,12 @@ class SideBubble(Bubble):
 
         #now widgets need to be reordered....
 
-
     def test(self, button, *args):
         print("testing", button.text)
         self.rv.data = [{'text': str(x[button.text])}
                         for x in
                         self.parent.parent.parent.parent.glworbs]
         #   'text_size': self.size,'halign': 'left','valign': 'middle',
-
 
     def close(self):
         print("closing....")
@@ -540,67 +639,14 @@ def bimg_resized(uuid, new_size):
 class FoldedInlayApp(App):
 
     def __init__(self, *args, **kwargs):
-        self.resize_size = 600
-        self.folded_fold_width = 40
-        self.group_amount = 5
-        self.window_padding = 100
         super(FoldedInlayApp, self).__init__()
 
     def build(self):
 
         root = AccordionContainer(orientation='horizontal')
-        binary_keys = ["binary_key", "binary", "image_binary_key"]
-        glworbs = data_models.enumerate_data(pattern='glworb:*')
-        groups = list(group_into(self.group_amount, glworbs))
-
-        for group_num, group in enumerate(groups):
-            group_container = ScatterTextWidget()
-            fold_status = []
-            for glworb_num, glworb in enumerate(group):
-                if glworb:
-                    keys = set(r.hgetall(glworb).keys())
-                    for bkey in binary_keys:
-                        data = r.hget(glworb, bkey)
-                        if data:
-                            print("{} has data".format(bkey))
-                            break
-                    try:
-                        data = bimg_resized(data, self.resize_size)
-                    except OSError:
-                        data = None
-
-                    if data:
-                        fold_status.append(glworb)
-                        img = ClickableImage(size_hint_y=None,
-                                             size_hint_x=None,
-                                             allow_stretch=True,
-                                             keep_ratio=True)
-                        img.texture = CoreImage(data, ext="jpg").texture
-                        group_container.image_grid.add_widget(img,
-                                                              index=len(group_container.image_grid.children))
-                        Window.size = (img.texture_size[0] + self.window_padding,
-                                       img.texture_size[1] + self.window_padding)
-
-                        print("size set to:", img.texture_size)
-                    else:
-                        fold_status.append(None)
-
-                group_container.keys = keys
-                group_container.glworbs = glworbs
-            #sequence_status_img for thumbnails
-            from rectangletest import sequence_status
-            fold_status_image = sequence_status(len(group),
-                                                fold_status,
-                                                abs(hash(str(group))),
-                                                width=self.folded_fold_width,
-                                                height=self.resize_size)
-            fold = AccordionItemThing(title=str(group_num),
-                                      background_normal=fold_status_image,
-                                      background_selected=fold_status_image)
-            fold.thing = group_container
-            fold.add_widget(group_container)
-            root.add_widget(fold)
-
+        populate_interval = 10
+        root.populate()
+        Clock.schedule_interval(root.populate, populate_interval)
         return root
 
 if __name__ == "__main__":
