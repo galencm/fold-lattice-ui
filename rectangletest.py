@@ -1,26 +1,19 @@
-from PIL import Image as PILImage,ImageOps,ImageDraw
-import random
+from PIL import Image as PILImage, ImageDraw
 
+def sequence_status(steps, filled, filename, width=60, height=120):
 
-def sequence_status(steps,filled,filename,width=60,height=120):
-    w = width
-    h = height
-    iiimg = PILImage.new('RGB',(w,h),(155,155,155,1))
-    draw = ImageDraw.Draw(iiimg)
-    #steps = 6
-    #either [(x0, y0), (x1, y1)] or [x0, y0, x1, y1].
-    #filled = [2,5,8]
-    for i,step in enumerate(range(steps)):
-        #color = random.choice(["gray","white"])
-        if i in filled:
-            color = "white"
-        else:
+    status_tile = PILImage.new('RGB', (width, height), (155, 155, 155, 1))
+    draw = ImageDraw.Draw(status_tile)
+
+    for step_num, step in enumerate(filled[:steps]):
+        if step is None:
             color = "gray"
-        print(i,color)
-        stepwise = h/steps
-        draw.rectangle((0,stepwise*i,w,(stepwise*i)+stepwise), outline=None,fill=color)
+        else:
+            color = "white"
+        stepwise = height / steps
+        draw.rectangle((0, stepwise * step_num, width, (stepwise * step_num) + stepwise), outline=None, fill=color)
 
-    filename = '{}.jpg'.format(filename)
-    iiimg.save(filename)
-    iiimg.close()
-    return filename
+    image_filename = '/tmp/{}.jpg'.format(filename)
+    status_tile.save(image_filename)
+    status_tile.close()
+    return image_filename
