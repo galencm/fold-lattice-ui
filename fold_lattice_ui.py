@@ -540,8 +540,7 @@ class ScatterTextWidget(BoxLayout):
         return super(ScatterTextWidget, self).on_touch_up(touch)
 
 
-def grouper(n, iterable, fillvalue=None):
-    #"grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+def group_into(n, iterable, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
@@ -575,7 +574,7 @@ class FoldedInlayApp(App):
         root = AccordionContainer(orientation='horizontal')
         binary_keys = ["binary_key", "binary", "image_binary_key"]
         glworbs = data_models.enumerate_data(pattern='glworb:*')
-        groups = list(grouper(self.group_amount, glworbs))
+        groups = list(group_into(self.group_amount, glworbs))
 
         for group_num, group in enumerate(groups):
             group_container = ScatterTextWidget()
