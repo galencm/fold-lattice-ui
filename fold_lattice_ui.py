@@ -5,12 +5,8 @@
 # Copyright (c) 2018, Galen Curwen-McAdams
 
 import random
-import sys
 import io
-import os
 import itertools
-
-from PIL import Image as PILImage,ImageOps
 import redis
 
 from kivy.app import App
@@ -42,7 +38,7 @@ from ma_cli import data_models
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
-r = redis.StrictRedis(host=r_ip, port=r_port,decode_responses=True)
+r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 
 Config.read('config.ini')
 kv = """
@@ -164,7 +160,6 @@ kv = """
                 size_hint_x:None
                 size_hint_y:None
 
-
 <Selection>:
     #size:self.size
     #pos:self.pos
@@ -179,7 +174,6 @@ kv = """
     #     Rectangle:
     #         pos:self.pos
     #         size:self.size
-
 
 <ScatterTextWidget>:
     id:image_container
@@ -209,11 +203,8 @@ kv = """
                 Rectangle:
                     pos: self.pos
                     size: self.size
-
-
             #row_default_height: '1dp'
             #row_force_default: True
-
             id: image_grid
             cols: 2
             #size_hint:(None,None)
@@ -243,47 +234,41 @@ class AccordionContainer(Accordion):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
-
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         print(keycode[1])
-        if keycode[1] =='left': 
-            for i,c in enumerate(self.children):
-                if c.collapse == False:
+        if keycode[1] == 'left':
+            for i, c in enumerate(self.children):
+                if c.collapse is False:
                     try:
-                        self.children[i+1].collapse=False
+                        self.children[i+1].collapse = False
                         c.collapse = True
                         break
                     except:
-                        self.children[0].collapse=False
+                        self.children[0].collapse = False
                         c.collapse = True
-
                         break
-        elif keycode[1] =='right': 
-            for i,c in enumerate(self.children):
-                print(i,c,c.collapse)
-                if c.collapse == False:
-                    self.children[i-1].collapse=False
+        elif keycode[1] == 'right':
+            for i, c in enumerate(self.children):
+                print(i, c, c.collapse)
+                if c.collapse is False:
+                    self.children[i-1].collapse = False
                     c.collapse = True
                     break
-
-        elif keycode[1] =='down': 
-            for i,c in enumerate(self.children):
-                if c.collapse == False:
+        elif keycode[1] == 'down':
+            for i, c in enumerate(self.children):
+                if c.collapse is False:
                     c.thing.scroller.enlarge()
                     break
-        elif keycode[1] =='up': 
-            for i,c in enumerate(self.children):
-                if c.collapse == False:
+        elif keycode[1] == 'up':
+            for i, c in enumerate(self.children):
+                if c.collapse is False:
                     c.thing.scroller.shrink()
                     break
-
-
         #return True
-
 
 class SideBubble(Bubble):
     def __init__(self, **kwargs):
@@ -294,8 +279,12 @@ class SideBubble(Bubble):
     def update_top(self):
         #akward to refer to parent
         for k in self.parent.parent.parent.parent.keys:
-            self.bubble_top_bar.add_widget(BubbleButton(text=k,size_hint_x=None,size_hint_y=None,on_release=self.test))
-        
+            self.bubble_top_bar.add_widget(BubbleButton(text=k,
+                                                        size_hint_x=None,
+                                                        size_hint_y=None,
+                                                        on_release=self.test)
+                                          )
+
         #self.rv.data = [{'text': str(x)} for x in range(100)]
 
         self.rv.data = [{'text': str(x)} for x in self.parent.parent.parent.parent.glworbs]
@@ -303,9 +292,11 @@ class SideBubble(Bubble):
         #now widgets need to be reordered....
 
 
-    def test(self,button,*args):
-        print("testing",button.text)
-        self.rv.data = [{'text': str(x[button.text])} for x in self.parent.parent.parent.parent.glworbs]
+    def test(self, button, *args):
+        print("testing", button.text)
+        self.rv.data = [{'text': str(x[button.text])}
+                        for x in
+                        self.parent.parent.parent.parent.glworbs]
         #   'text_size': self.size,'halign': 'left','valign': 'middle',
 
 
@@ -314,7 +305,6 @@ class SideBubble(Bubble):
         delattr(self.parent, 'bubb')
         self.parent.remove_widget(self)
         del self
-
 
 class RV(RecycleView):
     def __init__(self, **kwargs):
@@ -330,73 +320,67 @@ class ClickableImage(Image):
     #     print(self)
     #     self.show_bubble()
 
-
-
-    def show_bubble(self, touch_pos,*args):
+    def show_bubble(self, touch_pos, *args):
         if not hasattr(self, 'bubb'):
             #set pos to mouse
-            self.bubb = bubb = SideBubble(arrow_pos='left_mid',pos=touch_pos)
+            self.bubb = bubb = SideBubble(arrow_pos='left_mid', pos=touch_pos)
             #self.bubb = bubb = SideBubble(arrow_pos='left_mid')
             #self.add_widget(SideBubble(arrow_pos='left_mid'),len(self.children))
             self.add_widget(bubb, index=len(self.children))
             self.bubb.update_top()
-            self.bubb.pos = touch_pos[0],touch_pos[1]-(self.bubb.height)#/2
+            self.bubb.pos = touch_pos[0], touch_pos[1] - (self.bubb.height)#/2
 
     def on_touch_down(self, touch):
         if touch.button == 'left':
-            if self.collide_point(touch.pos[0],touch.pos[1]):
+            if self.collide_point(touch.pos[0], touch.pos[1]):
                 self.show_bubble(touch.pos)
         return super().on_touch_down(touch)
-
 
     def on_touch_up(self, touch):
 
         if touch.button == 'right':
-            p = touch.pos 
-            o = touch.opos 
-            s = min(p[0],o[0]), min(p[1],o[1]), abs(p[0]-o[0]), abs(p[1]-o[1])
-            w  = s[2]
-            h  = s[3]
+            p = touch.pos
+            o = touch.opos
+            s = min(p[0], o[0]), min(p[1], o[1]), abs(p[0] - o[0]), abs(p[1] - o[1])
+            w = s[2]
+            h = s[3]
             sx = s[0]
             sy = s[1]
-            if abs(w) > 5 and abs(h) >5:
+            if abs(w) > 5 and abs(h) > 5:
 
-                if self.collide_point(touch.pos[0],touch.pos[1]):
-                    self.add_widget(Selection(pos=(sx,sy),size=(w, h)))
-                    print("added widget for ",self)
-                    print(self.texture_size,self.norm_image_size,self.size)
-                    width_scale  = self.texture_size[0] / self.norm_image_size[0]
+                if self.collide_point(touch.pos[0], touch.pos[1]):
+                    self.add_widget(Selection(pos=(sx, sy), size=(w, h)))
+                    print("added widget for ", self)
+                    print(self.texture_size, self.norm_image_size, self.size)
+                    width_scale = self.texture_size[0] / self.norm_image_size[0]
                     height_scale = self.texture_size[1] / self.norm_image_size[1]
                     #[450, 600] (2400.0, 3200.0) [3200.0, 3200.0]
                     #pos 0 3200.0
-                    width_offset = (self.size[0] - self.norm_image_size[0])/2
-                    print("touch",touch.pos,touch.opos)
+                    width_offset = (self.size[0] - self.norm_image_size[0]) / 2
+                    print("touch", touch.pos, touch.opos)
 
                     # touch.push()
                     # touch.apply_transform_2d(self.to_local)
                     # #touch.apply_transform_2d(self.to_local)
                     # print("zzztouch",touch.pos,touch.opos)
                     # touch.pop()
-                    print("??",self.to_window(*self.pos))
+                    print("??", self.to_window(*self.pos))
 
-                    print("touch",touch.pos,touch.opos)
+                    print("touch", touch.pos, touch.opos)
                     print("--------------")
                     #return False
         return super().on_touch_up(touch)
-
 
 class ScrollViewer(ScrollView):
     #def on_scroll_move(self, *args,**kwargs):
     #    print(args)
 
-
-
-    def enlarge(self,zoom_amount=2):
+    def enlarge(self, zoom_amount=2):
         for child in self.parent.image_grid.children:
             child.width *= zoom_amount
             child.height *= zoom_amount
 
-    def shrink(self,zoom_amount=2):
+    def shrink(self, zoom_amount=2):
         for child in self.parent.image_grid.children:
             print(child.size)
             child.width /= zoom_amount
@@ -410,8 +394,6 @@ class ScrollViewer(ScrollView):
         print(touch.button)
         if touch.button == 'left':
             return super().on_touch_down(touch)
-
-
         elif touch.button == 'scrollup':
             self.enlarge()
             #self.parent.image_grid.row_default_height +=zoom_amount
@@ -430,8 +412,6 @@ class ScrollViewer(ScrollView):
             #     #     if 'Selection' in str(type(c)):
             #     #         c.width *= zoom_amount
             #     #         c.height *= zoom_amount
-
-
         elif touch.button == 'scrolldown':
             #self.parent.image_grid.row_default_height -=zoom_amount
             #print(self.parent.image_grid.rows,self.parent.image_grid.cols)
@@ -459,16 +439,16 @@ class ScrollViewer(ScrollView):
             #     #     if 'Selection' in str(type(c)):
             #     #         c.width *= zoom_amount
             #     #         c.height *= zoom_amount
-
     pass
+
 class Selection(Button):
     def __init__(self, **kwargs):
         super(Selection, self).__init__(**kwargs)
 
     def on_press(self):
-        print("pressed",self)
+        print("pressed", self)
         self.parent.remove_widget(self)
-        print("deleting self",self)
+        print("deleting self", self)
         del self
     #def on_release(self):
     #    print("release",self)
@@ -478,9 +458,8 @@ class ScatterTextWidget(BoxLayout):
 
     def __init__(self, **kwargs):
         super(ScatterTextWidget, self).__init__(**kwargs)
-        #self.image_grid.bind(minimum_height=self.image_grid.setter('height'))
-        #self.image_grid.bind(minimum_height=self.image_grid.setter('height'),minimum_width=self.image_grid.setter('width'))
-        self.image_grid.bind(minimum_height=self.image_grid.setter('height'),minimum_width=self.image_grid.setter('width'))
+        self.image_grid.bind(minimum_height=self.image_grid.setter('height'),
+                             minimum_width=self.image_grid.setter('width'))
 
     def change_label_colour(self, *args):
         #Window.size = (300, 100)
@@ -507,11 +486,11 @@ class ScatterTextWidget(BoxLayout):
         #     print ("caught?")
 
         if touch.button == 'right':
-            p = touch.pos 
-            o = touch.opos 
-            s = min(p[0],o[0]), min(p[1],o[1]), abs(p[0]-o[0]), abs(p[1]-o[1])
-            w  = s[2]
-            h  = s[3]
+            p = touch.pos
+            o = touch.opos
+            s = min(p[0], o[0]), min(p[1], o[1]), abs(p[0] - o[0]), abs(p[1] - o[1])
+            w = s[2]
+            h = s[3]
             sx = s[0]
             sy = s[1]
 
@@ -519,11 +498,11 @@ class ScatterTextWidget(BoxLayout):
             #print(w,h)
            # self.canvas.add(Rectangle(pos=touch.opos, size=(w, h)))
             #print(self.canvas.children)
-            
+
 
             #only lower left to upper right works for clicking...
             #w and h have to both be positive
-            if abs(w) > 5 and abs(h) >5:
+            if abs(w) > 5 and abs(h) > 5:
                 if w < 0 or h < 0:
                     #self.float_layer.add_widget(Selection(pos=(abs(w), abs(h)), on_press=self.foo,size=touch.opos))
                     #self.float_layer.add_widget(Selection(pos=(abs(w), abs(h)),size=touch.opos))
@@ -539,22 +518,20 @@ class ScatterTextWidget(BoxLayout):
         #return True
         return super(ScatterTextWidget, self).on_touch_up(touch)
 
-
 def group_into(n, iterable, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
-def bimg_resized(uuid,new_size):
-    import io
-    from PIL import Image
+def bimg_resized(uuid, new_size):
+    from PIL import Image as PImage
     contents = binary_r.get(uuid)
     f = io.BytesIO()
     f = io.BytesIO(contents)
-    img = Image.open(f)
-    img.thumbnail((new_size,new_size), Image.ANTIALIAS)
+    img = PImage.open(f)
+    img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
     extension = img.format
     file = io.BytesIO()
-    img.save(file,extension)
+    img.save(file, extension)
     img.close()
     file.seek(0)
     #return file.getvalue()
@@ -562,7 +539,7 @@ def bimg_resized(uuid,new_size):
 
 class FoldedInlayApp(App):
 
-    def __init__(self, *args,**kwargs):
+    def __init__(self, *args, **kwargs):
         self.resize_size = 600
         self.folded_fold_width = 40
         self.group_amount = 5
@@ -594,10 +571,15 @@ class FoldedInlayApp(App):
 
                     if data:
                         fold_status.append(glworb)
-                        img = ClickableImage(size_hint_y=None, size_hint_x=None, allow_stretch=True, keep_ratio=True)
+                        img = ClickableImage(size_hint_y=None,
+                                             size_hint_x=None,
+                                             allow_stretch=True,
+                                             keep_ratio=True)
                         img.texture = CoreImage(data, ext="jpg").texture
-                        group_container.image_grid.add_widget(img, index=len(group_container.image_grid.children))
-                        Window.size = img.texture_size[0] + self.window_padding, img.texture_size[1] + self.window_padding
+                        group_container.image_grid.add_widget(img,
+                                                              index=len(group_container.image_grid.children))
+                        Window.size = (img.texture_size[0] + self.window_padding,
+                                       img.texture_size[1] + self.window_padding)
 
                         print("size set to:", img.texture_size)
                     else:
@@ -607,8 +589,14 @@ class FoldedInlayApp(App):
                 group_container.glworbs = glworbs
             #sequence_status_img for thumbnails
             from rectangletest import sequence_status
-            fold_status_image = sequence_status(len(group),fold_status, abs(hash(str(group))), width=self.folded_fold_width, height=self.resize_size)
-            fold = AccordionItemThing(title=str(group_num), background_normal=fold_status_image, background_selected=fold_status_image)
+            fold_status_image = sequence_status(len(group),
+                                                fold_status,
+                                                abs(hash(str(group))),
+                                                width=self.folded_fold_width,
+                                                height=self.resize_size)
+            fold = AccordionItemThing(title=str(group_num),
+                                      background_normal=fold_status_image,
+                                      background_selected=fold_status_image)
             fold.thing = group_container
             fold.add_widget(group_container)
             root.add_widget(fold)
