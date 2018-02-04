@@ -560,24 +560,21 @@ def bimg_resized(uuid,new_size):
     #return file.getvalue()
     return file
 
-class TutorialApp(App):
+class FoldedInlayApp(App):
 
     def __init__(self, *args,**kwargs):
-        super(TutorialApp, self).__init__()
+        super(FoldedInlayApp, self).__init__()
 
     def build(self):
+
         root = AccordionContainer(orientation='horizontal')
-
-        glworbs =[]
-
-        binary_keys = ["binary_key","binary","image_binary_key"]
-
+        binary_keys = ["binary_key", "binary", "image_binary_key"]
         glworbs = data_models.enumerate_data(pattern='glworb:*')
+        groups = list(grouper(5, glworbs))
 
-        ggs = list(grouper(5,glworbs))
-        for g in ggs:
-            a = ScatterTextWidget()
-            for i,glworb in enumerate(g):
+        for group_num, group in enumerate(groups):
+            group_container = ScatterTextWidget()
+            for glworb_num, glworb in enumerate(group):
                 if glworb:
                     keys = set(r.hgetall(glworb).keys())
                     for bkey in binary_keys:
@@ -585,32 +582,31 @@ class TutorialApp(App):
                         if data:
                             print("{} has data".format(bkey))
                             break
-
                     try:
                         data = bimg_resized(data, 600)
                     except OSError:
                         data = None
 
                     if data:
-                        img = ClickableImage(size_hint_y=None,size_hint_x=None,allow_stretch=True,keep_ratio=True)
+                        img = ClickableImage(size_hint_y=None, size_hint_x=None, allow_stretch=True, keep_ratio=True)
                         img.texture = CoreImage(data, ext="jpg").texture
-                        a.image_grid.add_widget(img, index=len( a.image_grid.children))
-                        Window.size = img.texture_size[0]+100,img.texture_size[1]+100
+                        group_container.image_grid.add_widget(img, index=len(group_container.image_grid.children))
+                        Window.size = img.texture_size[0] + 100, img.texture_size[1] + 100
 
                         print("size set to:", img.texture_size)
-                a.keys = keys
-                a.glworbs = glworbs
-            from rectangletest import sequence_status#,sequence_status_img
-            filled = [random.randint(0,20) for _ in range(20)]
-            file = sequence_status(20,filled,abs(hash(str(g))),width=40,height=600)
+                group_container.keys = keys
+                group_container.glworbs = glworbs
+            #sequence_status_img for thumbnails
+            from rectangletest import sequence_status
+            filled = [random.randint(0, 20) for _ in range(20)]
+            file = sequence_status(20,filled, abs(hash(str(group))), width=40, height=600)
 
-            c = AccordionItemThing(title="zzzz",background_normal=file,background_selected=file)
-            c.thing = a
-            c.add_widget(a)
-
-            root.add_widget(c)
+            fold = AccordionItemThing(title=str(group_num), background_normal=file, background_selected=file)
+            fold.thing = group_container
+            fold.add_widget(group_container)
+            root.add_widget(fold)
 
         return root
 
 if __name__ == "__main__":
-    TutorialApp().run()
+    FoldedInlayApp().run()
