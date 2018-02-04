@@ -15,7 +15,7 @@ def sequence_status(steps, filled, filename, width=60, height=120):
         if step is None:
             color = "gray"
         else:
-            color = "white"
+            color = "lightgray"
         stepwise = height / steps
         draw.rectangle((0, stepwise * step_num, width, (stepwise * step_num) + stepwise), outline=None, fill=color)
 
