@@ -1,46 +1,39 @@
+import random
+import sys
+import io
+import os
+import itertools
+
+from PIL import Image as PILImage,ImageOps
+import redis
+
 from kivy.app import App
 from kivy.lang import Builder
+from kivy.core.window import Window
+from kivy.config import Config
 from kivy.uix.scatter import Scatter
 from kivy.uix.label import Label
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
-
 from kivy.properties import ListProperty, ObjectProperty
-
 from kivy.graphics.vertex_instructions import (Rectangle,
                                                Ellipse,
                                                Line)
 from kivy.graphics.context_instructions import Color
 from kivy.uix.image import Image
-
-import random
-from kivy.core.window import Window
-
-import sys
+from kivy.core.image import Image as CoreImage
 from kivy.uix.behaviors import DragBehavior
 from kivy.uix.button import Button
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.scrollview import ScrollView
-from kivy.config import Config
-from kivy.core.image import Image as CoreImage
-
-from kivy.uix.behaviors import ButtonBehavior
-import io
-import os
 from kivy.uix.bubble import Bubble
-
-from PIL import Image as PILImage,ImageOps
-from kivy.uix.recycleview import RecycleView
-
 from kivy.uix.bubble import BubbleButton
+from kivy.uix.recycleview import RecycleView
 from kivy.uix.accordion import Accordion, AccordionItem
 
-import itertools
 from ma_cli import data_models
 
-
-import redis
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
 r = redis.StrictRedis(host=r_ip, port=r_port,decode_responses=True)
