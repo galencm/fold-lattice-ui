@@ -9,6 +9,7 @@ import io
 import itertools
 import redis
 from collections import OrderedDict
+import argparse
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -232,15 +233,18 @@ class AccordionItemThing(AccordionItem):
 
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
-        super(AccordionContainer, self).__init__(**kwargs)
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.groups = []
         self.resize_size = 600
         self.folded_fold_width = 40
-        self.group_amount = 5
+        if 'group_amount' in kwargs:
+            self.group_amount = kwargs['group_amount']
+        else:
+            self.group_amount = 5
         self.window_padding = 100
         self.group_widgets = OrderedDict()
+        super(AccordionContainer, self).__init__()
 
     def populate(self, *args):
         """Check for glworbs not in folds and
@@ -639,15 +643,26 @@ def bimg_resized(uuid, new_size):
 class FoldedInlayApp(App):
 
     def __init__(self, *args, **kwargs):
+        # store kwargs to passthrough
+        self.kwargs = kwargs
         super(FoldedInlayApp, self).__init__()
 
     def build(self):
 
-        root = AccordionContainer(orientation='horizontal')
+        root = AccordionContainer(orientation='horizontal',**self.kwargs)
         populate_interval = 10
         root.populate()
         Clock.schedule_interval(root.populate, populate_interval)
         return root
 
 if __name__ == "__main__":
-    FoldedInlayApp().run()
+    tutorial_string = """
+    """
+    # kivy grabs argv, use a double dash
+    # before argparse args
+    # python3 fold_lattice_ui.py -- --group-amount 20
+    parser = argparse.ArgumentParser(description=tutorial_string,formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--group-amount", type=int, help="group by",default=5)
+    args = parser.parse_args()
+
+    FoldedInlayApp(**vars(args)).run()
