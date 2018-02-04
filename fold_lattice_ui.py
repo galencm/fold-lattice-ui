@@ -223,6 +223,9 @@ kv = """
             #size:800,800
 
 """
+
+Builder.load_string(kv)
+
 class AccordionItemThing(AccordionItem):
     def __init__(self, **kwargs):
         super(AccordionItemThing, self).__init__(**kwargs)
@@ -530,7 +533,6 @@ class ScatterTextWidget(BoxLayout):
         #return True
         return super(ScatterTextWidget, self).on_touch_up(touch)
 
-Builder.load_string(kv)
 
 def grouper(n, iterable, fillvalue=None):
     #"grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
