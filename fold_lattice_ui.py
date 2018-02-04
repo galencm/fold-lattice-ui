@@ -558,6 +558,10 @@ def bimg_resized(uuid,new_size):
 class FoldedInlayApp(App):
 
     def __init__(self, *args,**kwargs):
+        self.resize_size = 600
+        self.folded_fold_width = 40
+        self.group_amount = 5
+        self.window_padding = 100
         super(FoldedInlayApp, self).__init__()
 
     def build(self):
@@ -565,10 +569,11 @@ class FoldedInlayApp(App):
         root = AccordionContainer(orientation='horizontal')
         binary_keys = ["binary_key", "binary", "image_binary_key"]
         glworbs = data_models.enumerate_data(pattern='glworb:*')
-        groups = list(grouper(5, glworbs))
+        groups = list(grouper(self.group_amount, glworbs))
 
         for group_num, group in enumerate(groups):
             group_container = ScatterTextWidget()
+            fold_status = []
             for glworb_num, glworb in enumerate(group):
                 if glworb:
                     keys = set(r.hgetall(glworb).keys())
@@ -578,25 +583,27 @@ class FoldedInlayApp(App):
                             print("{} has data".format(bkey))
                             break
                     try:
-                        data = bimg_resized(data, 600)
+                        data = bimg_resized(data, self.resize_size)
                     except OSError:
                         data = None
 
                     if data:
+                        fold_status.append(glworb)
                         img = ClickableImage(size_hint_y=None, size_hint_x=None, allow_stretch=True, keep_ratio=True)
                         img.texture = CoreImage(data, ext="jpg").texture
                         group_container.image_grid.add_widget(img, index=len(group_container.image_grid.children))
-                        Window.size = img.texture_size[0] + 100, img.texture_size[1] + 100
+                        Window.size = img.texture_size[0] + self.window_padding, img.texture_size[1] + self.window_padding
 
                         print("size set to:", img.texture_size)
+                    else:
+                        fold_status.append(None)
+
                 group_container.keys = keys
                 group_container.glworbs = glworbs
             #sequence_status_img for thumbnails
             from rectangletest import sequence_status
-            filled = [random.randint(0, 20) for _ in range(20)]
-            file = sequence_status(20,filled, abs(hash(str(group))), width=40, height=600)
-
-            fold = AccordionItemThing(title=str(group_num), background_normal=file, background_selected=file)
+            fold_status_image = sequence_status(len(group),fold_status, abs(hash(str(group))), width=self.folded_fold_width, height=self.resize_size)
+            fold = AccordionItemThing(title=str(group_num), background_normal=fold_status_image, background_selected=fold_status_image)
             fold.thing = group_container
             fold.add_widget(group_container)
             root.add_widget(fold)
