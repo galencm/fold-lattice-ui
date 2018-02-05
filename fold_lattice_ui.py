@@ -10,6 +10,7 @@ import itertools
 import redis
 from collections import OrderedDict
 import argparse
+from PIL import Image as PImage
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -312,40 +313,28 @@ class AccordionContainer(Accordion):
 
                         if data:
                             fold_status.append(glworb)
-                            img = ClickableImage(size_hint_y=None,
-                                                 size_hint_x=None,
-                                                 allow_stretch=True,
-                                                 keep_ratio=True)
-                            img.texture = CoreImage(data, ext="jpg").texture
-                            group_container.image_grid.add_widget(img,
-                                                                  index=len(group_container.image_grid.children))
-                            # Window.size = (img.texture_size[0] + self.window_padding,
-                            #                img.texture_size[1] + self.window_padding)
-
-                            print("size set to:", img.texture_size)
                         else:
                             fold_status.append(None)
-                            # generate an image containing
-                            # all glworb fields...
-                            from PIL import Image as PImage
+                            # generate a placeholder
                             placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
-                            # use data_models to draw text
                             data_model_string =  data_models.pretty_format(r.hgetall(glworb), glworb)
                             placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
-
                             file = io.BytesIO()
                             placeholder.save(file, 'JPEG')
                             placeholder.close()
                             file.seek(0)
-
                             data = file
-                            img = ClickableImage(size_hint_y=None,
-                                                 size_hint_x=None,
-                                                 allow_stretch=True,
-                                                 keep_ratio=True)
-                            img.texture = CoreImage(data, ext="jpg").texture
-                            group_container.image_grid.add_widget(img,
-                                                                  index=len(group_container.image_grid.children))
+
+                        img = ClickableImage(size_hint_y=None,
+                                             size_hint_x=None,
+                                             allow_stretch=True,
+                                             keep_ratio=True)
+                        img.texture = CoreImage(data, ext="jpg").texture
+                        group_container.image_grid.add_widget(img,
+                                                              index=len(group_container.image_grid.children))
+
+                        # Window.size = (img.texture_size[0] + self.window_padding,
+                        #                img.texture_size[1] + self.window_padding)
 
                     group_container.keys = keys
                     group_container.glworbs = glworbs
@@ -568,7 +557,6 @@ def group_into(n, iterable, fillvalue=None):
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
 def bimg_resized(uuid, new_size):
-    from PIL import Image as PImage
     contents = binary_r.get(uuid)
     f = io.BytesIO()
     f = io.BytesIO(contents)
