@@ -347,7 +347,7 @@ class AccordionContainer(Accordion):
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        print(keycode[1])
+        print(keycode[1], modifiers)
         if keycode[1] == 'left':
             for i, c in enumerate(self.children):
                 if c.collapse is False:
@@ -365,17 +365,22 @@ class AccordionContainer(Accordion):
                     self.children[i-1].collapse = False
                     c.collapse = True
                     break
-        elif keycode[1] == 'down':
+        elif keycode[1] == 'down' and not modifiers:
             for i, c in enumerate(self.children):
                 if c.collapse is False:
                     c.thing.scroller.enlarge()
                     break
-        elif keycode[1] == 'up':
+        elif keycode[1] == 'up' and not modifiers:
             for i, c in enumerate(self.children):
                 if c.collapse is False:
                     c.thing.scroller.shrink()
                     break
-        #return True
+        elif keycode[1] == 'down' and 'ctrl' in modifiers:
+            for i, c in enumerate(self.children):
+                c.thing.scroller.enlarge()
+        elif keycode[1] == 'up' and 'ctrl' in modifiers:
+            for i, c in enumerate(self.children):
+                c.thing.scroller.shrink()
 
 class SideBubble(Bubble):
     def __init__(self, **kwargs):
