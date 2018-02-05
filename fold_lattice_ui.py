@@ -251,7 +251,7 @@ class AccordionContainer(Accordion):
         else:
             self.group_amount = 5
 
-        super(AccordionContainer, self).__init__()
+        super(AccordionContainer, self).__init__(anim_duration=0)
 
     def populate(self, *args):
         """Check for glworbs not in folds and
@@ -361,7 +361,6 @@ class AccordionContainer(Accordion):
                         break
         elif keycode[1] == 'right':
             for i, c in enumerate(self.children):
-                print(i, c, c.collapse)
                 if c.collapse is False:
                     self.children[i-1].collapse = False
                     c.collapse = True
