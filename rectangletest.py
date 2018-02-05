@@ -6,7 +6,7 @@
 
 from PIL import Image as PILImage, ImageDraw
 
-def sequence_status(steps, filled, filename, width=60, height=120):
+def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0):
 
     status_tile = PILImage.new('RGB', (width, height), (155, 155, 155, 1))
     draw = ImageDraw.Draw(status_tile)
@@ -19,10 +19,14 @@ def sequence_status(steps, filled, filename, width=60, height=120):
     for step_num, step in enumerate(sequence_steps):
         if step is None:
             color = "gray"
+            border_color = (135,135,135,1)
         else:
             color = "lightgray"
+            border_color = (223,223,223,1)
         stepwise = height / steps
-        draw.rectangle((0, stepwise * step_num, width, (stepwise * step_num) + stepwise), outline=(223,223,223,1), fill=color)
+        draw.rectangle((0, stepwise * step_num, width, (stepwise * step_num) + stepwise), outline=border_color, fill=color)
+
+        draw.text((0, stepwise * step_num), str(step_num + step_offset), (230, 230, 230))
 
     image_filename = '/tmp/{}.jpg'.format(filename)
     status_tile.save(image_filename)

@@ -344,8 +344,12 @@ class AccordionContainer(Accordion):
                                                     fold_status,
                                                     abs(hash(str(group))),
                                                     width=self.folded_fold_width,
-                                                    height=self.resize_size)
-                fold = AccordionItemThing(title=str(group_num),
+                                                    height=self.resize_size,
+                                                    step_offset=group_num*self.group_amount)
+                fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
+                                                                            range_start=group_num*self.group_amount,
+                                                                            range_end=group_num*self.group_amount+glworb_num)
+                fold = AccordionItemThing(title=fold_title,
                                           background_normal=fold_status_image,
                                           background_selected=fold_status_image)
                 fold.thing = group_container
