@@ -259,25 +259,8 @@ class AccordionContainer(Accordion):
         print("updating...")
         print("filtering by {}".format(self.filter_key))
         binary_keys = ["binary_key", "binary", "image_binary_key"]
-        glworbs = data_models.enumerate_data(pattern='glworb:*')
-        # sort by time using "created" field
-        # sorting will be various criteria
-        # for example: a field containing pagenumbers
-        # for ocr
-        #
-        # color coding may vary depending on criteria
-        # as well
-        glworbs_filtered = []
-        for g in glworbs:
-            created = r.hget(g, self.filter_key)
-            if created:
-                glworbs_filtered.append((g,created))
 
-        # sort list of tuples and then create list of field values
-        glworbs_filtered = sorted(glworbs_filtered, key=lambda x: x[1])
-        glworbs = [g[0] for g in glworbs_filtered]
-
-        groups = list(group_into(self.group_amount, glworbs))
+        groups = list(group_into(self.group_amount, data_models.filter_data(filter_key=self.filter_key, pattern='glworb:*')))
 
         for group_num, group in enumerate(groups):
             if group not in self.groups:
@@ -337,7 +320,7 @@ class AccordionContainer(Accordion):
                         #                img.texture_size[1] + self.window_padding)
 
                     group_container.keys = keys
-                    group_container.glworbs = glworbs
+                    group_container.glworbs = []#glworbs
                 #sequence_status_img for thumbnails
                 from rectangletest import sequence_status
                 fold_status_image = sequence_status(len(group),
