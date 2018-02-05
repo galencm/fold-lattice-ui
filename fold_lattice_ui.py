@@ -120,9 +120,6 @@ class AccordionContainer(Accordion):
         self.groups = []
         self.resize_size = 600
         self.folded_fold_width = 40
-        self.window_padding = 100
-        self.window_width = 1000
-        self.window_height = 600
         self.group_widgets = OrderedDict()
         # cli args
         if 'filter_key' in kwargs:
@@ -133,8 +130,6 @@ class AccordionContainer(Accordion):
             self.group_amount = kwargs['group_amount']
         else:
             self.group_amount = 5
-
-        Window.size = (1000,800)
         super(AccordionContainer, self).__init__(anim_duration=0)
 
     def populate(self, *args):
@@ -199,9 +194,6 @@ class AccordionContainer(Accordion):
                         img.texture = CoreImage(data, ext="jpg").texture
                         group_container.image_grid.add_widget(img,
                                                               index=len(group_container.image_grid.children))
-
-                        # Window.size = (img.texture_size[0] + self.window_padding,
-                        #                img.texture_size[1] + self.window_padding)
 
                     group_container.keys = keys
                     group_container.glworbs = []#glworbs
@@ -428,6 +420,8 @@ if __name__ == "__main__":
     # kivy grabs argv, use a double dash
     # before argparse args
     # python3 fold_lattice_ui.py -- --group-amount 20
+    # change window size
+    # python3 fold_lattice_ui.py --size=1500x800  -- --filter-key source_uid
     parser = argparse.ArgumentParser(description=tutorial_string,formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--group-amount", type=int, help="group by",default=5)
     parser.add_argument("--filter-key",  help="filter by")
