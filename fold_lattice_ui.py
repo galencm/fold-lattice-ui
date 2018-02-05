@@ -238,18 +238,25 @@ class AccordionContainer(Accordion):
         self.groups = []
         self.resize_size = 600
         self.folded_fold_width = 40
+        self.window_padding = 100
+        self.group_widgets = OrderedDict()
+        # cli args
+        if 'filter_key' in kwargs:
+            self.filter_key = kwargs['filter_key']
+        else:
+            self.filter_key = "created"
         if 'group_amount' in kwargs:
             self.group_amount = kwargs['group_amount']
         else:
             self.group_amount = 5
-        self.window_padding = 100
-        self.group_widgets = OrderedDict()
+
         super(AccordionContainer, self).__init__()
 
     def populate(self, *args):
         """Check for glworbs not in folds and
         add"""
         print("updating...")
+        print("filtering by {}".format(self.filter_key))
         binary_keys = ["binary_key", "binary", "image_binary_key"]
         glworbs = data_models.enumerate_data(pattern='glworb:*')
         # sort by time using "created" field
@@ -260,9 +267,8 @@ class AccordionContainer(Accordion):
         # color coding may vary depending on criteria
         # as well
         glworbs_filtered = []
-        filter_key = "created"
         for g in glworbs:
-            created = r.hget(g, filter_key)
+            created = r.hget(g, self.filter_key)
             if created:
                 glworbs_filtered.append((g,created))
 
@@ -578,6 +584,7 @@ if __name__ == "__main__":
     # python3 fold_lattice_ui.py -- --group-amount 20
     parser = argparse.ArgumentParser(description=tutorial_string,formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--group-amount", type=int, help="group by",default=5)
+    parser.add_argument("--filter-key",  help="filter by")
     args = parser.parse_args()
 
     FoldedInlayApp(**vars(args)).run()
