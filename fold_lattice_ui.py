@@ -32,8 +32,6 @@ from kivy.uix.behaviors import DragBehavior
 from kivy.uix.button import Button
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.bubble import Bubble
-from kivy.uix.bubble import BubbleButton
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
@@ -46,123 +44,6 @@ r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 
 Config.read('config.ini')
 kv = """
-
-<RV>:
-    viewclass: 'Label'
-
-    RecycleBoxLayout:
-        #default_size: None, dp(56)
-        width:self.width
-        height:self.height
-        default_size_hint: None, None
-        size_hint_y: None
-        height: self.minimum_height
-        orientation: 'vertical'
-
-<SideBubble>
-    # canvas:
-    #     Color:
-    #         rgba: 1, 0, 0, 0.5
-    #     Rectangle:
-    #         pos: self.pos
-    #         size: self.size
-
-    size_hint: (None, None)
-    #size_hint: (1, 1)
-    #pos:  (self.parent.x + self.parent.width/2, self.parent.y) if self.parent else (100, 100)
-    pos:  (self.parent.x + self.parent.width-150, self.parent.y) if self.parent else (100, 100)
-
-    #size: (160, 120)
-    #size:  (self.parent.width*2, self.parent.height) if self.parent else (100, 100)
-    size:  (800, 400)
-
-    pos_hint: {'center_x': .5, 'y': .6}
-    bubble_top_bar:bubble_top_bar
-    rv:rv
-    BoxLayout:
-        # canvas:
-        #     Color:
-        #         rgba: 1, 0, 0, 0.5
-        #     Rectangle:
-        #         pos: self.pos
-        #         size: self.size
-
-        orientation:'vertical'
-        size_hint_x: 1
-        size_hint_y: 1
-
-        BoxLayout:
-            # canvas:
-            #     Color:
-            #         rgba: 1, 0, 0, 0.5
-            #     Rectangle:
-            #         pos: self.pos
-            #         size: self.size
-
-            id:bubble_top_bar
-            orientation:'horizontal'
-            height:10
-            size_hint_x: 1
-            size_hint_y: .15
-            #width:self.parent.width
-            BubbleButton:
-                size_hint_x: None
-                size_hint_y: None
-                text:'close'
-                on_release: root.close()
-            # Label:
-            #     #id:foo
-            #     #text_size: root.width, None
-            #     #size: self.texture_size
-            #     text:'gooooo'
-            #     size_hint_x:None
-            #     size_hint_y:None
-
-        BoxLayout
-            # canvas:
-            #     Color:
-            #         rgba: 1, 0, 0, 0.5
-            #     Rectangle:
-            #         pos: self.pos
-            #         size: self.size
-            orientation:'horizontal'
-            size_hint_x: 1
-            #w
-            BoxLayout
-                orientation:'vertical'
-                BubbleButton:
-                    size_hint_x: .2
-                    text: '<- insert'
-                BubbleButton:
-                    size_hint_x: .2
-                    text: 'exinsert ->'
-            RV:
-                id:rv
-                #size_hint_x: .75
-                width:self.parent.width if self.parent else 100
-                #width:root.width
-                # canvas:
-                #     Color:
-                #         rgba: 1, 0, 0, 0.5
-                #     Rectangle:
-                #         pos: self.pos
-                #         size: self.size
-        BoxLayout:
-            canvas:
-                Color:
-                    rgba: 1, 0, 0, 0.5
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            orientation:'vertical'
-            size_hint_y: .1
-            Label:
-                id:bottom_text
-                #text_size: root.width, None
-                #size: self.texture_size
-                text:''
-                size_hint_x:None
-                size_hint_y:None
 
 <Selection>:
     #size:self.size
@@ -240,6 +121,8 @@ class AccordionContainer(Accordion):
         self.resize_size = 600
         self.folded_fold_width = 40
         self.window_padding = 100
+        self.window_width = 1000
+        self.window_height = 600
         self.group_widgets = OrderedDict()
         # cli args
         if 'filter_key' in kwargs:
@@ -251,6 +134,7 @@ class AccordionContainer(Accordion):
         else:
             self.group_amount = 5
 
+        Window.size = (1000,800)
         super(AccordionContainer, self).__init__(anim_duration=0)
 
     def populate(self, *args):
@@ -382,52 +266,14 @@ class AccordionContainer(Accordion):
             for i, c in enumerate(self.children):
                 c.thing.scroller.shrink()
 
-class SideBubble(Bubble):
-    def __init__(self, **kwargs):
-        super(SideBubble, self).__init__(**kwargs)
-
-    def update_top(self):
-
-        for k in self.parent.parent.parent.parent.keys:
-            self.bubble_top_bar.add_widget(BubbleButton(text=k,
-                                                        size_hint_x=None,
-                                                        size_hint_y=None,
-                                                        on_release=self.test))
-
-        self.rv.data = [{'text': str(x)} for x in self.parent.parent.parent.parent.glworbs]
-
-    def test(self, button, *args):
-        print("testing", button.text)
-        self.rv.data = [{'text': str(x[button.text])}
-                        for x in
-                        self.parent.parent.parent.parent.glworbs]
-
-    def close(self):
-        print("closing....")
-        delattr(self.parent, 'bubb')
-        self.parent.remove_widget(self)
-        del self
-
-class RV(RecycleView):
-    def __init__(self, **kwargs):
-        super(RV, self).__init__(**kwargs)
-
 class ClickableImage(Image):
     def __init__(self, **kwargs):
         super(ClickableImage, self).__init__(**kwargs)
 
-    def show_bubble(self, touch_pos, *args):
-        if not hasattr(self, 'bubb'):
-            #set pos to mouse
-            self.bubb = bubb = SideBubble(arrow_pos='left_mid', pos=touch_pos)
-            self.add_widget(bubb, index=len(self.children))
-            self.bubb.update_top()
-            self.bubb.pos = touch_pos[0], touch_pos[1] - (self.bubb.height)#/2
-
     def on_touch_down(self, touch):
         if touch.button == 'left':
             if self.collide_point(touch.pos[0], touch.pos[1]):
-                self.show_bubble(touch.pos)
+                pass
         return super().on_touch_down(touch)
 
     def on_touch_up(self, touch):
