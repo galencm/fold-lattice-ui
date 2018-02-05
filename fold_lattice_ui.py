@@ -325,6 +325,27 @@ class AccordionContainer(Accordion):
                             print("size set to:", img.texture_size)
                         else:
                             fold_status.append(None)
+                            # generate an image containing
+                            # all glworb fields...
+                            from PIL import Image as PImage
+                            placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
+                            # use data_models to draw text
+                            data_model_string =  data_models.pretty_format(r.hgetall(glworb), glworb)
+                            placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
+
+                            file = io.BytesIO()
+                            placeholder.save(file, 'JPEG')
+                            placeholder.close()
+                            file.seek(0)
+
+                            data = file
+                            img = ClickableImage(size_hint_y=None,
+                                                 size_hint_x=None,
+                                                 allow_stretch=True,
+                                                 keep_ratio=True)
+                            img.texture = CoreImage(data, ext="jpg").texture
+                            group_container.image_grid.add_widget(img,
+                                                                  index=len(group_container.image_grid.children))
 
                     group_container.keys = keys
                     group_container.glworbs = glworbs
