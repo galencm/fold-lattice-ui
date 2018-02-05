@@ -119,7 +119,7 @@ class AccordionContainer(Accordion):
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.groups = []
         self.resize_size = 600
-        self.folded_fold_width = 40
+        self.folded_fold_width = 44
         self.group_widgets = OrderedDict()
         # cli args
         if 'filter_key' in kwargs:
@@ -130,7 +130,7 @@ class AccordionContainer(Accordion):
             self.group_amount = kwargs['group_amount']
         else:
             self.group_amount = 5
-        super(AccordionContainer, self).__init__(anim_duration=0)
+        super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     def populate(self, *args):
         """Check for glworbs not in folds and
@@ -199,11 +199,12 @@ class AccordionContainer(Accordion):
                     group_container.glworbs = []#glworbs
                 #sequence_status_img for thumbnails
                 from rectangletest import sequence_status
+                # image text is smeared if folded_fold_width < ~40
                 fold_status_image = sequence_status(len(group),
                                                     fold_status,
                                                     abs(hash(str(group))),
                                                     width=self.folded_fold_width,
-                                                    height=self.resize_size,
+                                                    height=Window.size[1],
                                                     step_offset=group_num*self.group_amount)
                 fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
                                                                             range_start=group_num*self.group_amount,
