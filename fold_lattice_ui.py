@@ -224,7 +224,7 @@ class AccordionContainer(Accordion):
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        print(keycode[1], modifiers)
+        # print(keycode[1], modifiers)
         if keycode[1] == 'left':
             for i, c in enumerate(self.children):
                 if c.collapse is False:
