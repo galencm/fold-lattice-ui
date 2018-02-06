@@ -174,7 +174,7 @@ class AccordionContainer(Accordion):
                             data = None
 
                         if data:
-                            fold_status.append(glworb)
+                            fold_status.append(r.hget(glworb, self.filter_key))
                         else:
                             fold_status.append(None)
                             # generate a placeholder
