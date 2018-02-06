@@ -331,7 +331,16 @@ class AccordionContainer(Accordion):
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         # print(keycode[1], modifiers)
-        if keycode[1] == 'left':
+        if keycode[1] == 'left' and 'ctrl' in modifiers:
+            if self.folded_fold_width - 5 > 0:
+                self.folded_fold_width -= 5
+                print(self.folded_fold_width)
+            self.min_space = self.folded_fold_width
+        elif keycode[1] == 'right' and 'ctrl' in modifiers:
+            self.folded_fold_width += 5
+            print(self.folded_fold_width)
+            self.min_space = self.folded_fold_width
+        elif keycode[1] == 'left' and not modifiers:
             for i, c in enumerate(self.children):
                 if c.collapse is False:
                     try:
@@ -342,7 +351,7 @@ class AccordionContainer(Accordion):
                         self.children[0].collapse = False
                         c.collapse = True
                         break
-        elif keycode[1] == 'right':
+        elif keycode[1] == 'right' and not modifiers:
             for i, c in enumerate(self.children):
                 if c.collapse is False:
                     self.children[i-1].collapse = False
