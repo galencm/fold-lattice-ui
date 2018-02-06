@@ -6,7 +6,22 @@
 
 from PIL import Image as PILImage, ImageDraw
 
-def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0):
+def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, coloring=None):
+
+    if coloring is None:
+        coloring = {}
+
+    # fallback color schemes
+    # catch 'None' and '*' for everything else
+    if not 'None' in coloring:
+        coloring['None'] = {}
+        coloring['None']['fill'] = "gray"
+        coloring['None']['border'] = (135,135,135,1)
+
+    if not '*' in coloring:
+        coloring['*'] = {}
+        coloring['*']['fill'] = "lightgray"
+        coloring['*']['border'] = (223,223,223,1)
 
     status_tile = PILImage.new('RGB', (width, height), (155, 155, 155, 1))
     draw = ImageDraw.Draw(status_tile)
@@ -17,12 +32,34 @@ def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0
         sequence_steps = filled + [None for _ in range(steps - len(filled))]
 
     for step_num, step in enumerate(sequence_steps):
+
         if step is None:
-            color = "gray"
-            border_color = (135,135,135,1)
+            color = coloring['None']['fill']
+            border_color = coloring['None']['border']
         else:
-            color = "lightgray"
-            border_color = (223,223,223,1)
+            color = coloring['*']['fill']
+            border_color = coloring['*']['border']
+            for k, v in coloring.items():
+                if k == step:
+                    try:
+                        if isinstance(coloring[k]['fill'], list):
+                            color = tuple(coloring[k]['fill'])
+                        else:
+                            color = coloring[k]['fill']
+                    except Exception as ex:
+                        print(ex)
+                        color = coloring['*']['fill']
+
+                    try:
+                        if isinstance(coloring[k]['border'], list):
+                            border_color = tuple(coloring[k]['border'])
+                        else:
+                            border_color = coloring[k]['border']
+                    except Exception as ex:
+                        print(ex)
+                        border_color = coloring['*']['border']
+                    break
+
         stepwise = height / steps
         draw.rectangle((0, stepwise * step_num, width, (stepwise * step_num) + stepwise), outline=border_color, fill=color)
 

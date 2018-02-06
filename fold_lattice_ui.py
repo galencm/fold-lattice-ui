@@ -7,6 +7,7 @@
 import random
 import io
 import itertools
+import json
 import redis
 from collections import OrderedDict
 import argparse
@@ -123,16 +124,68 @@ class AccordionContainer(Accordion):
         self.resize_size = 600
         self.folded_fold_width = 44
         self.group_widgets = OrderedDict()
+        self.palette = {}
         # cli args
         if 'filter_key' in kwargs:
             self.filter_key = kwargs['filter_key']
         else:
             self.filter_key = "created"
+
         if 'group_amount' in kwargs:
             self.group_amount = kwargs['group_amount']
         else:
             self.group_amount = 5
+
+        if 'palette' in kwargs:
+            if isinstance(kwargs['palette'], dict):
+                print(kwargs['palette'])
+                self.palette = kwargs['palette']
+                if 'palette_name' in kwargs:
+                    if kwargs['palette_name']:
+                        print("saving palette")
+                        self.save_palette(kwargs['palette_name'], kwargs['palette'])
+
+        if 'palette_name' in kwargs and kwargs['palette'] is None:
+            self.palette = self.load_palette(kwargs['palette_name'])
+
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
+
+    def save_palette(self, palette_name, palette):
+        """ Save a palette. Flatten the palette
+        dictionary to store as redis hash"""
+        flattened_palette = {}
+        for category, colors in palette.items():
+            for k,v in colors.items():
+                if isinstance(v, tuple) or isinstance(v, list):
+                    v = ",".join([str(s) for s in v])
+                flattened_palette["{}____{}".format(category, k)] = v
+
+        r.hmset("palette:{}".format(palette_name), flattened_palette)
+
+    def load_palette(self, palette_name):
+        """ Load a palette from redis.
+        """
+        unflattened_palette = {}
+        palette = r.hgetall("palette:{}".format(palette_name))
+
+        if palette:
+            for k,v in palette.items():
+                print(k,v)
+                if "____" in k:
+                    category, subkey = k.split("____")
+
+                    if not category in unflattened_palette:
+                        unflattened_palette[category] = {}
+
+                    if not subkey in unflattened_palette[category]:
+                        unflattened_palette[category][subkey] = ""
+
+                    if "," in v:
+                        v = tuple(v.split(","))
+                    unflattened_palette[category][subkey] = v
+            return unflattened_palette
+        else:
+            return {}
 
     def populate(self, *args):
         """Check for glworbs not in folds and
@@ -205,7 +258,8 @@ class AccordionContainer(Accordion):
                                                     abs(hash(str(group))),
                                                     width=self.folded_fold_width,
                                                     height=Window.size[1],
-                                                    step_offset=group_num*self.group_amount)
+                                                    step_offset=group_num*self.group_amount,
+                                                    coloring=self.palette)
                 fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
                                                                             range_start=group_num*self.group_amount,
                                                                             range_end=group_num*self.group_amount+glworb_num)
@@ -420,12 +474,21 @@ if __name__ == "__main__":
     """
     # kivy grabs argv, use a double dash
     # before argparse args
-    # python3 fold_lattice_ui.py -- --group-amount 20
-    # change window size
-    # python3 fold_lattice_ui.py --size=1500x800  -- --filter-key source_uid
+    # change grouping amount:
+    #
+    #     python3 fold_lattice_ui.py -- --group-amount 20
+    #
+    # change window size and create/save palette:
+    #
+    #     python3 fold_lattice_ui.py --size=1500x800  -- --filter-key source_uid \
+    #     --palette '{"roman": { "border":"black", "fill": [155,155,255,1]}}' --palette-name foo
+    #
     parser = argparse.ArgumentParser(description=tutorial_string,formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--group-amount", type=int, help="group by",default=5)
     parser.add_argument("--filter-key",  help="filter by")
+    parser.add_argument("--palette-name",  help="palette to use")
+    parser.add_argument("--palette", type=json.loads,  help="palette in json format, will be stored if --palette-name supplied")
+
     args = parser.parse_args()
 
     FoldedInlayApp(**vars(args)).run()
