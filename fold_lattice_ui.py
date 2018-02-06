@@ -125,6 +125,7 @@ class AccordionContainer(Accordion):
         self.folded_fold_width = 44
         self.group_widgets = OrderedDict()
         self.palette = {}
+        self.group_sketch = {}
         # cli args
         if 'filter_key' in kwargs:
             self.filter_key = kwargs['filter_key']
@@ -147,6 +148,10 @@ class AccordionContainer(Accordion):
 
         if 'palette_name' in kwargs and kwargs['palette'] is None:
             self.palette = self.load_palette(kwargs['palette_name'])
+
+        if 'group_sketch' in kwargs:
+            if kwargs['group_sketch']:
+                self.group_sketch = kwargs['group_sketch']
 
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
@@ -195,7 +200,46 @@ class AccordionContainer(Accordion):
         print("filtering by {}".format(self.filter_key))
         binary_keys = ["binary_key", "binary", "image_binary_key"]
 
-        groups = list(group_into(self.group_amount, data_models.filter_data(filter_key=self.filter_key, pattern='glworb:*')))
+        # dict({"chapter" : {"chapter1":60,"chapter2":60}})
+        sketched_expiry = 1000
+        sketched = {}
+
+        for category in self.group_sketch.keys():
+            if category == self.filter_key:
+                for field_value, amount in self.group_sketch[category].items():
+                    sketched[field_value] = {}
+                    sketched[field_value]['amount'] = amount
+                    sketched[field_value]['ids']  = []
+                    for num in range(amount):
+                        hash_name = "tmpsketch:{}:{}:{}".format(category, field_value, num)
+                        r.hset(hash_name, category, field_value)
+                        r.expire(hash_name, sketched_expiry)
+                        sketched[field_value]['ids'].append(hash_name)
+
+        glworbs = data_models.filter_data_to_dict(filter_key=self.filter_key, pattern='glworb:*')
+
+        # use glworbs_reference to assert
+        # that no glworbs are missing after
+        # adding sketches
+        glworbs_reference = []
+        for k,v in glworbs.items():
+            glworbs_reference.extend(v)
+
+        glworbs_sketched_out = []
+
+        for field_value in sketched.keys():
+            pad_amount = sketched[field_value]['amount'] - len(glworbs[field_value])
+            if pad_amount > 0:
+                print("{} will be padded by {}".format(field_value, pad_amount))
+                glworbs[field_value].extend(sketched[field_value]['ids'][:pad_amount])
+
+        # sort dictionary by keyname
+        for key in sorted(glworbs):
+            glworbs_sketched_out.extend(glworbs[key])
+
+        assert set(glworbs_reference).issubset(set(glworbs_sketched_out))
+
+        groups = list(group_into(self.group_amount, glworbs_sketched_out ))
 
         for group_num, group in enumerate(groups):
             if group not in self.groups:
@@ -232,10 +276,17 @@ class AccordionContainer(Accordion):
                         if data:
                             fold_status.append(r.hget(glworb, self.filter_key))
                         else:
-                            fold_status.append(None)
+                            #fold_status.append(None)
+                            fold_status.append(r.hget(glworb, self.filter_key))
                             # generate a placeholder
                             placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
-                            data_model_string =  data_models.pretty_format(r.hgetall(glworb), glworb)
+                            data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
+                            # sketched will have no data
+                            # use their id string instead
+                            # sketched ids may or may not
+                            # be unique
+                            if not data_model_string:
+                                data_model_string = glworb
                             placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
                             file = io.BytesIO()
                             placeholder.save(file, 'JPEG')
@@ -484,11 +535,15 @@ if __name__ == "__main__":
     #     python3 fold_lattice_ui.py --size=1500x800  -- --filter-key source_uid \
     #     --palette '{"roman": { "border":"black", "fill": [155,155,255,1]}}' --palette-name foo
     #
+    # visually sketch groups (values for field)
+    # --group-sketch '{"chapter" : {"chapter1":60,"chapter2":60}}'
+
     parser = argparse.ArgumentParser(description=tutorial_string,formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--group-amount", type=int, help="group by",default=5)
     parser.add_argument("--filter-key",  help="filter by")
     parser.add_argument("--palette-name",  help="palette to use")
     parser.add_argument("--palette", type=json.loads,  help="palette in json format, will be stored if --palette-name supplied")
+    parser.add_argument("--group-sketch", type=json.loads,  help="create placeholders / expected to sketch out structure")
 
     args = parser.parse_args()
 
