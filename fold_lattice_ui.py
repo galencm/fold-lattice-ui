@@ -181,7 +181,8 @@ class AccordionContainer(Accordion):
                         unflattened_palette[category][subkey] = ""
 
                     if "," in v:
-                        v = tuple(v.split(","))
+                        v = tuple([int(s) for s in v.split(",")])
+
                     unflattened_palette[category][subkey] = v
             return unflattened_palette
         else:
