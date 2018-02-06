@@ -243,7 +243,7 @@ class AccordionContainer(Accordion):
 
         for group_num, group in enumerate(groups):
             if group not in self.groups:
-                print("{new} not in groups".format(new=group))
+                # print("{new} not in groups".format(new=group))
                 # a partial group may now have additional items.
                 # Check if the first item matches and then
                 # remove old partial widget and all
@@ -266,7 +266,7 @@ class AccordionContainer(Accordion):
                         for bkey in binary_keys:
                             data = r.hget(glworb, bkey)
                             if data:
-                                print("{} has data".format(bkey))
+                                # print("{} has data".format(bkey))
                                 break
                         try:
                             data = bimg_resized(data, self.resize_size)
