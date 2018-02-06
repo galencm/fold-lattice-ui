@@ -37,6 +37,8 @@ from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
 
 from ma_cli import data_models
+#sequence_status_img for thumbnails
+from rectangletest import sequence_status
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -197,8 +199,6 @@ class AccordionContainer(Accordion):
 
                     group_container.keys = keys
                     group_container.glworbs = []#glworbs
-                #sequence_status_img for thumbnails
-                from rectangletest import sequence_status
                 # image text is smeared if folded_fold_width < ~40
                 fold_status_image = sequence_status(len(group),
                                                     fold_status,
