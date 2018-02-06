@@ -228,10 +228,15 @@ class AccordionContainer(Accordion):
         glworbs_sketched_out = []
 
         for field_value in sketched.keys():
-            pad_amount = sketched[field_value]['amount'] - len(glworbs[field_value])
-            if pad_amount > 0:
-                print("{} will be padded by {}".format(field_value, pad_amount))
-                glworbs[field_value].extend(sketched[field_value]['ids'][:pad_amount])
+            try:
+                sketch_amount = sketched[field_value]['amount'] - len(glworbs[field_value])
+            except KeyError:
+                sketch_amount = sketched[field_value]['amount']
+                if not field_value in glworbs:
+                    glworbs[field_value] = []
+            if sketch_amount > 0:
+                print("{} will be sketched out by {}".format(field_value, sketch_amount))
+                glworbs[field_value].extend(sketched[field_value]['ids'][:sketch_amount])
 
         # sort dictionary by keyname
         for key in sorted(glworbs):
