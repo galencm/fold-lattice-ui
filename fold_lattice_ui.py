@@ -126,6 +126,7 @@ class AccordionContainer(Accordion):
         self.group_widgets = OrderedDict()
         self.palette = {}
         self.group_sketch = {}
+        self.groups_to_show = {}
         # cli args
         if 'filter_key' in kwargs:
             self.filter_key = kwargs['filter_key']
@@ -152,6 +153,10 @@ class AccordionContainer(Accordion):
         if 'group_sketch' in kwargs:
             if kwargs['group_sketch']:
                 self.group_sketch = kwargs['group_sketch']
+
+        if 'group_show' in kwargs:
+            if kwargs['group_show']:
+                self.groups_to_show = kwargs['group_show']
 
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
@@ -240,9 +245,11 @@ class AccordionContainer(Accordion):
 
         # sort dictionary by keyname
         for key in sorted(glworbs):
-            glworbs_sketched_out.extend(glworbs[key])
+            if not self.groups_to_show or key in self.groups_to_show:
+                glworbs_sketched_out.extend(glworbs[key])
 
-        assert set(glworbs_reference).issubset(set(glworbs_sketched_out))
+        if not self.groups_to_show:
+            assert set(glworbs_reference).issubset(set(glworbs_sketched_out))
 
         groups = list(group_into(self.group_amount, glworbs_sketched_out ))
 
@@ -558,6 +565,7 @@ if __name__ == "__main__":
     parser.add_argument("--palette-name",  help="palette to use")
     parser.add_argument("--palette", type=json.loads,  help="palette in json format, will be stored if --palette-name supplied")
     parser.add_argument("--group-sketch", type=json.loads,  help="create placeholders / expected to sketch out structure")
+    parser.add_argument("--group-show", nargs='+', default=[], help="show only subset of groups")
 
     args = parser.parse_args()
 
