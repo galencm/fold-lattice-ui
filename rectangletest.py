@@ -98,13 +98,15 @@ def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0
                             draw_stack.append(draw_call)
                         break
         if texturing:
-            if texturing[step_num] == 0:
-                # continuous draw vertical lines
-                draw_stack.append(functools.partial(vertical_texture, draw, 8, y1, stepwise, width))
-            elif texturing[step_num] == -1:
-                # discontinuous
+            try:
+                if texturing[step_num] == 0:
+                    # continuous draw vertical lines
+                    draw_stack.append(functools.partial(vertical_texture, draw, 8, y1, stepwise, width))
+                elif texturing[step_num] == -1:
+                    # discontinuous
+                    pass
+            except IndexError:
                 pass
-
         # draw cells
         for dc in draw_stack:
             dc()
