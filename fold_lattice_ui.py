@@ -11,6 +11,7 @@ import json
 import redis
 from collections import OrderedDict
 import argparse
+import functools
 from PIL import Image as PImage
 
 from kivy.app import App
@@ -310,12 +311,13 @@ class AccordionContainer(Accordion):
                                              allow_stretch=True,
                                              keep_ratio=True)
                         img.texture = CoreImage(data, ext="jpg").texture
-                        group_container.image_grid.add_widget(img,
-                                                              index=len(group_container.image_grid.children))
-
+                        #widgets_to_add.append((img, index=len(group_container.image_grid.children))
+                        widgets_to_add.append(functools.partial(group_container.image_grid.add_widget,img, index=len(group_container.image_grid.children)))
                     group_container.keys = keys
-                    group_container.glworbs = []#glworbs
-                # image text is smeared if folded_fold_width < ~40
+
+                for widget in widgets_to_add:
+                    widget()
+
                 fold_status_image = sequence_status(len(group),
                                                     fold_status,
                                                     abs(hash(str(group))),
