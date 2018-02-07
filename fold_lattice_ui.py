@@ -279,10 +279,9 @@ class AccordionContainer(Accordion):
                             data = None
 
                         if data:
-                            fold_status.append(r.hget(glworb, self.filter_key))
+                            fold_status.append({"binary" : "data", self.filter_key : r.hget(glworb, self.filter_key)})
                         else:
-                            #fold_status.append(None)
-                            fold_status.append(r.hget(glworb, self.filter_key))
+                            fold_status.append({"binary" : "None", self.filter_key : r.hget(glworb, self.filter_key)})
                             # generate a placeholder
                             placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
                             data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
@@ -316,6 +315,7 @@ class AccordionContainer(Accordion):
                                                     width=self.folded_fold_width,
                                                     height=Window.size[1],
                                                     step_offset=group_num*self.group_amount,
+                                                    background_palette_field=self.filter_key,
                                                     coloring=self.palette)
                 fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
                                                                             range_start=group_num*self.group_amount,
