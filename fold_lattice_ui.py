@@ -95,7 +95,8 @@ kv = """
             #row_default_height: '1dp'
             #row_force_default: True
             id: image_grid
-            cols: 2
+            #cols: 1
+            rows: 1
             #size_hint:(None,None)
             size_hint_y: None
             size_hint_x:None
