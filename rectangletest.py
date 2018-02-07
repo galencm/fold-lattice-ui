@@ -10,7 +10,7 @@ import functools
 def vertical_texture(draw, spacing, top, height, width):
     # draw mutable, so no return
     for space in range(0, width, round(width / spacing)):
-        draw.line((space, top, space, top + height), fill=(255, 255, 255, 128))
+        draw.line((space, top, space, top + height), width=2, fill=(255, 255, 255, 128))
 
 def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_palette_field="", texturing=None, coloring=None):
 
