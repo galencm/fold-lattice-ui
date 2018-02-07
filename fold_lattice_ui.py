@@ -273,6 +273,7 @@ class AccordionContainer(Accordion):
 
                 group_container = ScatterTextWidget()
                 fold_status = []
+                widgets_to_add = []
                 for glworb_num, glworb in enumerate(group):
                     if glworb:
                         keys = set(r.hgetall(glworb).keys())
