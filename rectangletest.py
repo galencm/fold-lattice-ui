@@ -7,7 +7,7 @@
 from PIL import Image as PILImage, ImageDraw, ImageColor
 import functools
 
-def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_field="",coloring=None):
+def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_palette_field="",coloring=None):
 
     if coloring is None:
         coloring = {}
@@ -82,7 +82,7 @@ def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0
                         #cell number label
                         draw_stack.append(functools.partial(draw.text, (x1, y1), str(step_num + step_offset), (230, 230, 230,128)))
 
-                        if key == background_field:
+                        if key == background_palette_field:
                             draw_call = functools.partial(draw.rectangle,(x1, y1, x2, y2), outline=border_color, fill=color)
                             draw_stack.insert(0, draw_call)
                         else:
