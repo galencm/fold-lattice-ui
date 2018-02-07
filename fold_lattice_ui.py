@@ -515,13 +515,19 @@ def group_into(n, iterable, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
-def bimg_resized(uuid, new_size):
+def bimg_resized(uuid, new_size, linking_uuid=None):
     contents = binary_r.get(uuid)
     f = io.BytesIO()
     f = io.BytesIO(contents)
     img = PImage.open(f)
     img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
     extension = img.format
+    if linking_uuid:
+        data_model_string = data_models.pretty_format(r.hgetall(linking_uuid), linking_uuid)
+        # escape braces
+        data_model_string = data_model_string.replace("{","{{")
+        data_model_string = data_model_string.replace("}","}}")
+        img = data_models.img_overlay(img, data_model_string, 50, 50, 12)
     file = io.BytesIO()
     img.save(file, extension)
     img.close()
