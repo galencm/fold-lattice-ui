@@ -344,13 +344,54 @@ class AccordionContainer(Accordion):
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        # print(keycode[1], modifiers)
-        if keycode[1] == 'left' and 'ctrl' in modifiers:
+        print(keycode[1], modifiers)
+        if keycode[1] == 'down' and 'shift' in modifiers:
+            for i, c in enumerate(self.children):
+                try:
+                    c.thing.scroller.scroll_y -= (1/c.thing.image_grid.rows)
+                except TypeError:
+                    pass
+        elif keycode[1] == 'up' and 'shift' in modifiers:
+            for i, c in enumerate(self.children):
+                try:
+                    c.thing.scroller.scroll_y += (1/c.thing.image_grid.rows)
+                except TypeError:
+                    pass
+        elif keycode[1] == 'left' and 'shift' in modifiers:
+            for i, c in enumerate(self.children):
+                try:
+                    c.thing.scroller.scroll_x -= (1/len(c.thing.image_grid.children))
+                except TypeError:
+                    print(c.thing.image_grid.cols)
+                    pass
+        elif keycode[1] == 'right' and 'shift' in modifiers:
+            for i, c in enumerate(self.children):
+                try:
+                    c.thing.scroller.scroll_x += (1/len(c.thing.image_grid.children))
+                except TypeError:
+                    print(c.thing.image_grid.cols)
+                    pass
+        elif keycode[1] == 'right' and 'ctrl' in modifiers:
+            for i, c in enumerate(self.children):
+                if c.thing.image_grid.rows is None:
+                    if c.thing.image_grid.cols - 1 > 0:
+                        c.thing.image_grid.cols -= 1
+                elif c.thing.image_grid.cols is None:
+                    if c.thing.image_grid.rows - 1 > 0:
+                        c.thing.image_grid.rows -= 1
+                print(c.thing.image_grid.rows,c.thing.image_grid.cols)
+        elif keycode[1] == 'left' and 'ctrl' in modifiers:
+            for i, c in enumerate(self.children):
+                if c.thing.image_grid.rows is None:
+                    c.thing.image_grid.cols += 1
+                elif c.thing.image_grid.cols is None:
+                    c.thing.image_grid.rows += 1
+        elif keycode[1] == 'left' and 'z' in modifiers:
             if self.folded_fold_width - 5 > 0:
                 self.folded_fold_width -= 5
                 print(self.folded_fold_width)
             self.min_space = self.folded_fold_width
-        elif keycode[1] == 'right' and 'ctrl' in modifiers:
+        elif keycode[1] == 'right' and 'z' in modifiers:
             self.folded_fold_width += 5
             print(self.folded_fold_width)
             self.min_space = self.folded_fold_width
@@ -371,12 +412,12 @@ class AccordionContainer(Accordion):
                     self.children[i-1].collapse = False
                     c.collapse = True
                     break
-        elif keycode[1] == 'down' and not modifiers:
+        elif keycode[1] == 'up' and not modifiers:
             for i, c in enumerate(self.children):
                 if c.collapse is False:
                     c.thing.scroller.enlarge()
                     break
-        elif keycode[1] == 'up' and not modifiers:
+        elif keycode[1] == 'down' and not modifiers:
             for i, c in enumerate(self.children):
                 if c.collapse is False:
                     c.thing.scroller.shrink()
