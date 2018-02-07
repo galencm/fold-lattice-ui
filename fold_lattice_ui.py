@@ -128,6 +128,7 @@ class AccordionContainer(Accordion):
         self.palette = {}
         self.group_sketch = {}
         self.groups_to_show = {}
+        self.subsort = "pagenum"
         # cli args
         if 'filter_key' in kwargs:
             self.filter_key = kwargs['filter_key']
@@ -222,7 +223,7 @@ class AccordionContainer(Accordion):
                         r.expire(hash_name, sketched_expiry)
                         sketched[field_value]['ids'].append(hash_name)
 
-        glworbs = data_models.filter_data_to_dict(filter_key=self.filter_key, pattern='glworb:*')
+        glworbs = data_models.filter_data_to_dict(filter_key=self.filter_key, pattern='glworb:*', subsort=self.subsort)
 
         # use glworbs_reference to assert
         # that no glworbs are missing after
@@ -254,6 +255,8 @@ class AccordionContainer(Accordion):
 
         groups = list(group_into(self.group_amount, glworbs_sketched_out ))
 
+        continuous_series = []
+        continuous_mask = []
         for group_num, group in enumerate(groups):
             if group not in self.groups:
                 # print("{new} not in groups".format(new=group))
@@ -276,14 +279,33 @@ class AccordionContainer(Accordion):
                 widgets_to_add = []
                 for glworb_num, glworb in enumerate(group):
                     if glworb:
-                        keys = set(r.hgetall(glworb).keys())
+                        glworb_values = r.hgetall(glworb)
+                        keys = glworb_values.keys()
+                        if self.subsort:
+                            print(glworb_values)
+                            try:
+                                continuous_series.append(glworb_values[self.subsort])
+                            except:
+                                continuous_series.append(None)
+                            try:
+                                if len(continuous_series) == 1:
+                                    continuous_mask.append(-1)
+                                elif int(continuous_series[-2]) == int(continuous_series[-1]) - 1:
+                                    continuous_mask[-1] = 0
+                                    continuous_mask.append(0)
+                                else:
+                                    continuous_mask.append(-1)
+                            except Exception as ex:
+                                print(ex)
+                                continuous_mask.append(None)
+                        keys = set(glworb_values)
                         for bkey in binary_keys:
                             data = r.hget(glworb, bkey)
                             if data:
                                 # print("{} has data".format(bkey))
                                 break
                         try:
-                            data = bimg_resized(data, self.resize_size)
+                            data = bimg_resized(data, self.resize_size, linking_uuid=glworb)
                         except OSError:
                             data = None
 
@@ -326,6 +348,7 @@ class AccordionContainer(Accordion):
                                                     height=Window.size[1],
                                                     step_offset=group_num*self.group_amount,
                                                     background_palette_field=self.filter_key,
+                                                    texturing=continuous_mask[group_num*self.group_amount:(group_num*self.group_amount)+glworb_num+1],
                                                     coloring=self.palette)
                 fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
                                                                             range_start=group_num*self.group_amount,

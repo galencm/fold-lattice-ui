@@ -7,7 +7,12 @@
 from PIL import Image as PILImage, ImageDraw, ImageColor
 import functools
 
-def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_palette_field="",coloring=None):
+def vertical_texture(draw, spacing, top, height, width):
+    # draw mutable, so no return
+    for space in range(0, width, round(width / spacing)):
+        draw.line((space, top, space, top + height), fill=(255, 255, 255, 128))
+
+def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_palette_field="", texturing=None, coloring=None):
 
     if coloring is None:
         coloring = {}
@@ -92,6 +97,14 @@ def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0
                             draw_call = functools.partial(draw.rectangle,(x1, y1, x2, y2), outline=border_color, fill=color)
                             draw_stack.append(draw_call)
                         break
+        if texturing:
+            if texturing[step_num] == 0:
+                # continuous draw vertical lines
+                draw_stack.append(functools.partial(vertical_texture, draw, 8, y1, stepwise, width))
+            elif texturing[step_num] == -1:
+                # discontinuous
+                pass
+
         # draw cells
         for dc in draw_stack:
             dc()
