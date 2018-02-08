@@ -130,6 +130,7 @@ class AccordionContainer(Accordion):
         self.group_sketch = {}
         self.groups_to_show = {}
         self.subsort = None
+        self.whitelist = {}
         # cli args
         if 'filter_key' in kwargs:
             self.filter_key = kwargs['filter_key']
@@ -164,6 +165,10 @@ class AccordionContainer(Accordion):
         if 'continuity_key' in kwargs:
             if kwargs['continuity_key']:
                 self.subsort = kwargs['continuity_key']
+
+        if 'whitelist_kv' in kwargs:
+            if kwargs['whitelist_kv']:
+                self.whitelist = kwargs['whitelist_kv']
 
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
@@ -228,7 +233,7 @@ class AccordionContainer(Accordion):
                         r.expire(hash_name, sketched_expiry)
                         sketched[field_value]['ids'].append(hash_name)
 
-        glworbs = data_models.filter_data_to_dict(filter_key=self.filter_key, pattern='glworb:*', subsort=self.subsort)
+        glworbs = data_models.filter_data_to_dict(filter_key=self.filter_key, pattern='glworb:*', subsort=self.subsort, whitelist=self.whitelist)
 
         # use glworbs_reference to assert
         # that no glworbs are missing after
@@ -645,6 +650,7 @@ if __name__ == "__main__":
     parser.add_argument("--group-sketch", type=json.loads,  help="create placeholders / expected to sketch out structure")
     parser.add_argument("--group-show", nargs='+', default=[], help="show only subset of groups")
     parser.add_argument("--continuity-key",  help="visual continuity / discontinuity of key (integer) values")
+    parser.add_argument("--whitelist-kv", type=json.loads,  help="key:value pairs to whitelist. Example : {\"method\" : [\"slurp_gphoto2\"]}")
 
     args = parser.parse_args()
 
