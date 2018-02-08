@@ -129,7 +129,7 @@ class AccordionContainer(Accordion):
         self.palette = {}
         self.group_sketch = {}
         self.groups_to_show = {}
-        self.subsort = "pagenum"
+        self.subsort = None
         # cli args
         if 'filter_key' in kwargs:
             self.filter_key = kwargs['filter_key']
@@ -160,6 +160,10 @@ class AccordionContainer(Accordion):
         if 'group_show' in kwargs:
             if kwargs['group_show']:
                 self.groups_to_show = kwargs['group_show']
+
+        if 'continuity_key' in kwargs:
+            if kwargs['continuity_key']:
+                self.subsort = kwargs['continuity_key']
 
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
@@ -640,6 +644,7 @@ if __name__ == "__main__":
     parser.add_argument("--palette", type=json.loads,  help="palette in json format, will be stored if --palette-name supplied")
     parser.add_argument("--group-sketch", type=json.loads,  help="create placeholders / expected to sketch out structure")
     parser.add_argument("--group-show", nargs='+', default=[], help="show only subset of groups")
+    parser.add_argument("--continuity-key",  help="visual continuity / discontinuity of key (integer) values")
 
     args = parser.parse_args()
 
