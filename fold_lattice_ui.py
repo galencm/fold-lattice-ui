@@ -133,12 +133,14 @@ class AccordionContainer(Accordion):
         self.whitelist = {}
         # cli args
         if 'filter_key' in kwargs:
-            self.filter_key = kwargs['filter_key']
+            if kwargs['filter_key']:
+                self.filter_key = kwargs['filter_key']
         else:
             self.filter_key = "created"
 
         if 'group_amount' in kwargs:
-            self.group_amount = kwargs['group_amount']
+            if kwargs['group_amount']:
+                self.group_amount = kwargs['group_amount']
         else:
             self.group_amount = 5
 
