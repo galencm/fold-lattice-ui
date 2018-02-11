@@ -464,6 +464,8 @@ class AccordionContainer(Accordion):
         elif keycode[1] == 'up' and 'ctrl' in modifiers:
             for i, c in enumerate(self.children):
                 c.thing.scroller.shrink()
+        elif keycode[1] == 'c' and 'ctrl' in modifiers:
+            App.get_running_app().stop()
 
 class ClickableImage(Image):
     def __init__(self, **kwargs):
