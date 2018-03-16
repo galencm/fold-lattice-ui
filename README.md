@@ -8,17 +8,19 @@ Quickly see groupings(current, roughly expected) and state of sequences(sequenti
 
 basic:
 ```
-python3 fold_lattice_ui.py --size=1500x800
+pip3 install https://github.com/galencm/fold-lattice-ui --user
+
+ma-ui-fold --size=1500x800
 ```
 
 change window size and create/save palette(notice double dash -- separating cli args from kivy args):
 ```
-python3 fold_lattice_ui.py --size=1500x800  -- --filter-key source_uid --palette '{"roman": { "border":"black", "fill": [155,155,255,1]}}' --palette-name foo
+ma-ui-fold --size=1500x800  -- --filter-key source_uid --palette '{"roman": { "border":"black", "fill": [155,155,255,1]}}' --palette-name foo
 ```
 
 visually sketch groups (values for field)
 ```
-python3 fold_lattice_ui.py --size=1500x800 -- --group-sketch '{"chapter" : {"part1":60,"part2":60}}'
+ma-ui-fold --size=1500x800 -- --group-sketch '{"chapter" : {"part1":60,"part2":60}}'
 ```
 
 ## Keybindings:

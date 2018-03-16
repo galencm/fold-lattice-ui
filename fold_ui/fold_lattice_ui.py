@@ -40,7 +40,7 @@ from kivy.clock import Clock
 
 from ma_cli import data_models
 #sequence_status_img for thumbnails
-from rectangletest import sequence_status
+from fold_ui.rectangletest import sequence_status
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -629,7 +629,7 @@ class FoldedInlayApp(App):
         Clock.schedule_interval(root.populate, populate_interval)
         return root
 
-if __name__ == "__main__":
+def main():
     tutorial_string = """
     """
     # kivy grabs argv, use a double dash
