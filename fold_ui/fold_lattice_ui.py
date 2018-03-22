@@ -125,6 +125,7 @@ class AccordionContainer(Accordion):
         self.groups = []
         self.resize_size = 600
         self.folded_fold_width = 44
+        self.folded_fold_height = Window.size[1]
         self.group_widgets = OrderedDict()
         self.palette = {}
         self.group_sketch = {}
@@ -191,6 +192,8 @@ class AccordionContainer(Accordion):
         if 'thumbnail_height' in kwargs:
             if kwargs['thumbnail_height']:
                 self.thumbnail_height = kwargs['thumbnail_height']
+                if self.folded_fold_height < self.thumbnail_height:
+                    self.folded_fold_height = self.thumbnail_height
 
         if 'thumbnail_name' in kwargs:
             if kwargs['thumbnail_name']:
@@ -396,7 +399,7 @@ class AccordionContainer(Accordion):
                                                     fold_status,
                                                     abs(hash(str(group))),
                                                     width=self.folded_fold_width,
-                                                    height=Window.size[1],
+                                                    height=self.folded_fold_height,
                                                     step_offset=group_num*self.group_amount,
                                                     background_palette_field=self.filter_key,
                                                     texturing=continuous_mask[group_num*self.group_amount:(group_num*self.group_amount)+glworb_num+1],
