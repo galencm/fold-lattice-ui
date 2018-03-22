@@ -137,8 +137,8 @@ class AccordionContainer(Accordion):
         # ma-wip
         self.thumbnail_only = False
         self.thumbnail_name = "fold_thumbnail.jpg"
-        self.thumbnail_width = 200
-        self.thumbnail_height = 200
+        self.thumbnail_width = None
+        self.thumbnail_height = None
         # cli args
         if 'filter_key' in kwargs:
             if kwargs['filter_key']:
@@ -424,21 +424,21 @@ class AccordionContainer(Accordion):
         if self.thumbnail_only is True:
             if fold_thumbnails:
                 fold_thumbnails = [PImage.open(s) for s in fold_thumbnails]
-                widths = [i.size[0] for i in fold_thumbnails]
-                heights = [i.size[1] for i in fold_thumbnails]
 
-                total_width = sum(widths)
-                max_height = max(heights)
-
-                new_im = PImage.new('RGB', (total_width, max_height))
+                thumb_width = sum([i.size[0] for i in fold_thumbnails])
+                thumb_height = max([i.size[1] for i in fold_thumbnails])
+                thumb_img = PImage.new('RGB', (thumb_width, thumb_height))
 
                 x_offset = 0
-                for im in fold_thumbnails:
-                  new_im.paste(im, (x_offset,0))
-                  x_offset += im.size[0]
+                for img in fold_thumbnails:
+                  thumb_img.paste(img, (x_offset, 0))
+                  x_offset += img.size[0]
 
-                new_im.thumbnail((self.thumbnail_width, self.thumbnail_height),PImage.ANTIALIAS)
-                new_im.save(self.thumbnail_name)
+                # resize thumbnail if height or width specified
+                if self.thumbnail_width or self.thumbnail_height:
+                    thumb_img.thumbnail((self.thumbnail_width, self.thumbnail_height), PImage.ANTIALIAS)
+                thumb_img.save(self.thumbnail_name)
+
             # exit...
             App.get_running_app().stop()
             import sys
