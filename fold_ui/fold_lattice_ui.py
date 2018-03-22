@@ -131,6 +131,14 @@ class AccordionContainer(Accordion):
         self.groups_to_show = {}
         self.subsort = None
         self.whitelist = {}
+        # for now generate thumbnails by starting app
+        # at some point move this functionality into
+        # a function that can be imported and run like
+        # ma-wip
+        self.thumbnail_only = False
+        self.thumbnail_name = "fold_thumbnail.jpg"
+        self.thumbnail_width = 200
+        self.thumbnail_height = 200
         # cli args
         if 'filter_key' in kwargs:
             if kwargs['filter_key']:
@@ -171,6 +179,22 @@ class AccordionContainer(Accordion):
         if 'whitelist_kv' in kwargs:
             if kwargs['whitelist_kv']:
                 self.whitelist = kwargs['whitelist_kv']
+
+        if 'thumbnail_only' in kwargs:
+            if kwargs['thumbnail_only']:
+                self.thumbnail_only = kwargs['thumbnail_only']
+
+        if 'thumbnail_width' in kwargs:
+            if kwargs['thumbnail_width']:
+                self.thumbnail_width = kwargs['thumbnail_width']
+
+        if 'thumbnail_height' in kwargs:
+            if kwargs['thumbnail_height']:
+                self.thumbnail_height = kwargs['thumbnail_height']
+
+        if 'thumbnail_name' in kwargs:
+            if kwargs['thumbnail_name']:
+                self.thumbnail_name = kwargs['thumbnail_name']
 
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
@@ -218,6 +242,7 @@ class AccordionContainer(Accordion):
         print("updating...")
         print("filtering by {}".format(self.filter_key))
         binary_keys = ["binary_key", "binary", "image_binary_key"]
+        fold_thumbnails = []
 
         # dict({"chapter" : {"chapter1":60,"chapter2":60}})
         sketched_expiry = 1000
@@ -308,52 +333,66 @@ class AccordionContainer(Accordion):
                                 else:
                                     continuous_mask.append(-1)
                             except Exception as ex:
-                                print(ex)
+                                print("continuous:", ex)
                                 continuous_mask.append(None)
                         keys = set(glworb_values)
-                        for bkey in binary_keys:
-                            data = r.hget(glworb, bkey)
+
+                        if self.thumbnail_only is True:
+                            for bkey in binary_keys:
+                                data = r.hget(glworb, bkey)
+                                if data:
+                                    print("{} has data".format(bkey))
+                                    break
+                            # skip loading and resizing for thumbnail only
                             if data:
-                                # print("{} has data".format(bkey))
-                                break
-                        try:
-                            data = bimg_resized(data, self.resize_size, linking_uuid=glworb)
-                        except OSError:
-                            data = None
+                                fold_status.append({"binary" : "data", self.filter_key : r.hget(glworb, self.filter_key)})
+                            else:
+                                fold_status.append({"binary" : "None", self.filter_key : r.hget(glworb, self.filter_key)})
+                        elif self.thumbnail_only is False:
+                            for bkey in binary_keys:
+                                data = r.hget(glworb, bkey)
+                                if data:
+                                    print("{} has data".format(bkey))
+                                    break
+                            try:
+                                data = bimg_resized(data, self.resize_size, linking_uuid=glworb)
+                            except OSError:
+                                data = None
 
-                        if data:
-                            fold_status.append({"binary" : "data", self.filter_key : r.hget(glworb, self.filter_key)})
-                        else:
-                            fold_status.append({"binary" : "None", self.filter_key : r.hget(glworb, self.filter_key)})
-                            # generate a placeholder
-                            placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
-                            data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
-                            # sketched will have no data
-                            # use their id string instead
-                            # sketched ids may or may not
-                            # be unique
-                            if not data_model_string:
-                                data_model_string = glworb
-                            placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
-                            file = io.BytesIO()
-                            placeholder.save(file, 'JPEG')
-                            placeholder.close()
-                            file.seek(0)
-                            data = file
+                            if data:
+                                fold_status.append({"binary" : "data", self.filter_key : r.hget(glworb, self.filter_key)})
+                            else:
+                                fold_status.append({"binary" : "None", self.filter_key : r.hget(glworb, self.filter_key)})
+                                # generate a placeholder
+                                placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
+                                data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
+                                # sketched will have no data
+                                # use their id string instead
+                                # sketched ids may or may not
+                                # be unique
+                                if not data_model_string:
+                                    data_model_string = glworb
+                                placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
+                                file = io.BytesIO()
+                                placeholder.save(file, 'JPEG')
+                                placeholder.close()
+                                file.seek(0)
+                                data = file
 
-                        img = ClickableImage(size_hint_y=None,
-                                             size_hint_x=None,
-                                             allow_stretch=True,
-                                             keep_ratio=True)
-                        img.texture = CoreImage(data, ext="jpg").texture
-                        #widgets_to_add.append((img, index=len(group_container.image_grid.children))
-                        widgets_to_add.append(functools.partial(group_container.image_grid.add_widget,img, index=len(group_container.image_grid.children)))
+                            img = ClickableImage(size_hint_y=None,
+                                                 size_hint_x=None,
+                                                 allow_stretch=True,
+                                                 keep_ratio=True)
+                            img.texture = CoreImage(data, ext="jpg").texture
+                            #widgets_to_add.append((img, index=len(group_container.image_grid.children))
+                            widgets_to_add.append(functools.partial(group_container.image_grid.add_widget,img, index=len(group_container.image_grid.children)))
+
                     group_container.keys = keys
 
                 for widget in widgets_to_add:
                     widget()
 
-                fold_status_image = sequence_status(len(group),
+                fold_status_image_name = sequence_status(len(group),
                                                     fold_status,
                                                     abs(hash(str(group))),
                                                     width=self.folded_fold_width,
@@ -362,18 +401,48 @@ class AccordionContainer(Accordion):
                                                     background_palette_field=self.filter_key,
                                                     texturing=continuous_mask[group_num*self.group_amount:(group_num*self.group_amount)+glworb_num+1],
                                                     coloring=self.palette)
-                fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
-                                                                            range_start=group_num*self.group_amount,
-                                                                            range_end=group_num*self.group_amount+glworb_num)
-                fold = AccordionItemThing(title=fold_title,
-                                          background_normal=fold_status_image,
-                                          background_selected=fold_status_image)
-                fold.thing = group_container
-                fold.add_widget(group_container)
-                self.add_widget(fold)
-                self.group_widgets[str(group)] = fold
+
+                if self.thumbnail_only is False:
+
+                    fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
+                                                                                range_start=group_num*self.group_amount,
+                                                                                range_end=group_num*self.group_amount+glworb_num)
+                    fold = AccordionItemThing(title=fold_title,
+                                              background_normal=fold_status_image_name,
+                                              background_selected=fold_status_image_name)
+
+                    fold.thing = group_container
+                    fold.add_widget(group_container)
+                    self.add_widget(fold)
+                    self.group_widgets[str(group)] = fold
+
+                if self.thumbnail_only is True:
+                    fold_thumbnails.append(fold_status_image_name)
 
         self.groups = groups
+
+        if self.thumbnail_only is True:
+            if fold_thumbnails:
+                fold_thumbnails = [PImage.open(s) for s in fold_thumbnails]
+                widths = [i.size[0] for i in fold_thumbnails]
+                heights = [i.size[1] for i in fold_thumbnails]
+
+                total_width = sum(widths)
+                max_height = max(heights)
+
+                new_im = PImage.new('RGB', (total_width, max_height))
+
+                x_offset = 0
+                for im in fold_thumbnails:
+                  new_im.paste(im, (x_offset,0))
+                  x_offset += im.size[0]
+
+                new_im.thumbnail((self.thumbnail_width, self.thumbnail_height),PImage.ANTIALIAS)
+                new_im.save(self.thumbnail_name)
+            # exit...
+            App.get_running_app().stop()
+            import sys
+            sys.exit()
 
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
@@ -655,6 +724,10 @@ def main():
     parser.add_argument("--group-show", nargs='+', default=[], help="show only subset of groups")
     parser.add_argument("--continuity-key",  help="visual continuity / discontinuity of key (integer) values")
     parser.add_argument("--whitelist-kv", type=json.loads,  help="key:value pairs to whitelist. Example : {\"method\" : [\"slurp_gphoto2\"]}")
+    parser.add_argument("--thumbnail-only", action='store_true', help="create a thumbnail and exit")
+    parser.add_argument("--thumbnail-width", type=int, help="thumbnail width")
+    parser.add_argument("--thumbnail-height", type=int, help="thumbnail height")
+    parser.add_argument("--thumbnail-name", help="thumbnail filename")
 
     args = parser.parse_args()
 
