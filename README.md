@@ -4,12 +4,25 @@ _folded high level views and unfolded details of work-in-progress materials_
 
 Quickly see groupings(current, roughly expected) and state of sequences(sequentiality, missing steps) that updates as new material is added. Custom palettes and patterns. Uses a folded columnar layout that can be unfolded to look at individual items or groups of items in detail.
 
+## Installation
+
+Pip:
+
+```
+pip3 install git+https://github.com/galencm/fold-lattice-ui --user
+```
+
+Develop while using pip:
+
+```
+git clone https://github.com/galencm/fold-lattice-ui
+cd fold-lattice-ui/
+pip3 install --editable ./ --user
+```
+
 ## Usage
 
-basic:
 ```
-pip3 install https://github.com/galencm/fold-lattice-ui --user
-
 ma-ui-fold --size=1500x800
 ```
 
