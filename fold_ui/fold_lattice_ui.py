@@ -202,19 +202,21 @@ class AccordionContainer(Accordion):
 
         if 'xml_file' in kwargs:
             # dss-ui exports xml
-            xml = etree.parse(kwargs['xml_file'])
-            for record in xml.xpath('//category'):
-                name = str(record.xpath("./@name")[0])
-                color = str(record.xpath("./@color")[0])
-                rough_amount = str(record.xpath("./@rough_amount")[0])
-                rough_amount_start = str(record.xpath("./@rough_amount_start")[0])
-                rough_amount_end = str(record.xpath("./@rough_amount_end")[0])
-                rough_order = str(record.xpath("./@rough_order")[0])
-                self.palette[name] = {}
-                self.palette[name]["fill"] = color
-                if not "created" in self.group_sketch:
-                    self.group_sketch["created"] = {}
-                self.group_sketch["created"][name] = int(rough_amount)
+            if kwargs['xml_file']:
+                xml = etree.parse(kwargs['xml_file'])
+                for record in xml.xpath('//category'):
+                    name = str(record.xpath("./@name")[0])
+                    color = str(record.xpath("./@color")[0])
+                    rough_amount = str(record.xpath("./@rough_amount")[0])
+                    rough_amount_start = str(record.xpath("./@rough_amount_start")[0])
+                    rough_amount_end = str(record.xpath("./@rough_amount_end")[0])
+                    rough_order = str(record.xpath("./@rough_order")[0])
+                    self.palette[name] = {}
+                    self.palette[name]["fill"] = color
+                    if not "created" in self.group_sketch:
+                        self.group_sketch["created"] = {}
+                    self.group_sketch["created"][name] = int(rough_amount)
+
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     def save_palette(self, palette_name, palette):
