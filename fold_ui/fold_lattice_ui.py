@@ -13,6 +13,7 @@ from collections import OrderedDict
 import argparse
 import functools
 from PIL import Image as PImage
+from lxml import etree
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -199,6 +200,21 @@ class AccordionContainer(Accordion):
             if kwargs['thumbnail_name']:
                 self.thumbnail_name = kwargs['thumbnail_name']
 
+        if 'xml_file' in kwargs:
+            # dss-ui exports xml
+            xml = etree.parse(kwargs['xml_file'])
+            for record in xml.xpath('//category'):
+                name = str(record.xpath("./@name")[0])
+                color = str(record.xpath("./@color")[0])
+                rough_amount = str(record.xpath("./@rough_amount")[0])
+                rough_amount_start = str(record.xpath("./@rough_amount_start")[0])
+                rough_amount_end = str(record.xpath("./@rough_amount_end")[0])
+                rough_order = str(record.xpath("./@rough_order")[0])
+                self.palette[name] = {}
+                self.palette[name]["fill"] = color
+                if not "created" in self.group_sketch:
+                    self.group_sketch["created"] = {}
+                self.group_sketch["created"][name] = int(rough_amount)
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     def save_palette(self, palette_name, palette):
@@ -731,6 +747,7 @@ def main():
     parser.add_argument("--thumbnail-width", type=int, help="thumbnail width")
     parser.add_argument("--thumbnail-height", type=int, help="thumbnail height")
     parser.add_argument("--thumbnail-name", help="thumbnail filename")
+    parser.add_argument("--xml-file",  help="xml file to use")
 
     args = parser.parse_args()
 
