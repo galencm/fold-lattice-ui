@@ -9,7 +9,7 @@ Quickly see groupings(current, roughly expected) and state of sequences(sequenti
 Pip:
 
 ```
-pip3 install git+https://github.com/galencm/fold-lattice-ui --user
+pip3 install git+https://github.com/galencm/fold-lattice-ui --user --process-dependency-links
 ```
 
 Develop while using pip:
@@ -17,7 +17,7 @@ Develop while using pip:
 ```
 git clone https://github.com/galencm/fold-lattice-ui
 cd fold-lattice-ui/
-pip3 install --editable ./ --user
+pip3 install --editable ./ --user --process-dependency-links
 ```
 
 ## Usage
