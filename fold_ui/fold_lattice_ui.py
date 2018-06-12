@@ -141,12 +141,11 @@ class AccordionContainer(Accordion):
         self.thumbnail_name = "fold_thumbnail.jpg"
         self.thumbnail_width = None
         self.thumbnail_height = None
+        self.filter_key = "created"
         # cli args
         if 'filter_key' in kwargs:
             if kwargs['filter_key']:
                 self.filter_key = kwargs['filter_key']
-        else:
-            self.filter_key = "created"
 
         if 'group_amount' in kwargs:
             if kwargs['group_amount']:
