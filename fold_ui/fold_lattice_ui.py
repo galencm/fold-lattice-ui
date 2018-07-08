@@ -6,14 +6,20 @@
 
 import random
 import io
+import random
 import itertools
+import os
 import json
 import redis
 from collections import OrderedDict
+import atexit
 import argparse
 import functools
+import uuid
+import colour
 from PIL import Image as PImage
 from lxml import etree
+import attr
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -24,7 +30,11 @@ from kivy.uix.label import Label
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import ListProperty, ObjectProperty
+from kivy.uix.checkbox import CheckBox
+from kivy.uix.dropdown import DropDown
+from kivy.uix.popup import Popup
+from kivy.uix.colorpicker import ColorPicker
+from kivy.properties import ListProperty, ObjectProperty, BooleanProperty
 from kivy.graphics.vertex_instructions import (Rectangle,
                                                Ellipse,
                                                Line)
@@ -41,11 +51,11 @@ from kivy.clock import Clock
 
 from ma_cli import data_models
 #sequence_status_img for thumbnails
-from fold_ui.rectangletest import sequence_status
+from fold_ui.rectangletest import sequence_status, cell_preview, structure_preview
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
-r = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
+redis_conn = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 
 Config.read('config.ini')
 kv = """
@@ -114,6 +124,644 @@ kv = """
 
 Builder.load_string(kv)
 
+class DropDownInput(TextInput):
+
+    def __init__(self, preload=None, preload_attr=None, preload_clean=True, **kwargs):
+        self.multiline = False
+        self.drop_down = DropDown()
+        self.drop_down.bind(on_select=self.on_select)
+        self.bind(on_text_validate=self.add_text)
+        self.preload = preload
+        self.preload_attr = preload_attr
+        self.preload_clean = preload_clean
+        self.not_preloaded = set()
+        super(DropDownInput, self).__init__(**kwargs)
+        self.add_widget(self.drop_down)
+
+    def add_text(self,*args):
+        if args[0].text not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+            btn = Button(text=args[0].text, size_hint_y=None, height=44)
+            self.drop_down.add_widget(btn)
+            btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
+            if not 'preload' in args:
+                self.not_preloaded.add(btn)
+
+    def on_select(self, *args):
+        self.text = args[1]
+        if args[1] not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
+            self.drop_down.append(Button(text=args[1]))
+            self.not_preloaded.add(btn)
+
+    def on_touch_down(self, touch):
+        preloaded = set()
+        if self.preload:
+            for thing in self.preload:
+                if self.preload_attr:
+                    # use operator to allow dot access of attributes
+                    thing_string = str(operator.attrgetter(self.preload_attr)(thing))
+                else:
+                    thing_string = str(thing)
+                self.add_text(Button(text=thing_string),'preload')
+                preloaded.add(thing_string)
+
+        # preload_clean removes entries that
+        # are not in the preload source anymore
+        if self.preload_clean is True:
+            added_through_widget = [btn.text for btn in self.not_preloaded if hasattr(btn ,'text')]
+            for btn in self.drop_down.children[0].children:
+                try:
+                    if btn.text not in preloaded and btn.text not in added_through_widget:
+                        self.drop_down.remove_widget(btn)
+                except Exception as ex:
+                    pass
+
+        return super(DropDownInput, self).on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if touch.grab_current == self:
+            self.drop_down.open(self)
+        return super(DropDownInput, self).on_touch_up(touch)
+
+class ColorPickerPopup(Popup):
+    def __init__(self, **kwargs):
+        self.title = "foo"
+        self.content = ColorPicker()
+        self.size_hint = (.5,.5)
+        super(ColorPickerPopup, self).__init__()
+
+@attr.s
+class PaletteThing(object):
+    name = attr.ib(default=None)
+    # list of ColorMapThing s
+    possiblities = attr.ib(default=attr.Factory(list))
+    color = attr.ib(default=None)
+    order_value = attr.ib(default=1.0)
+
+    @name.validator
+    def check_name(self, attribute, value):
+        if value is None:
+            setattr(self, 'name', str(uuid.uuid4()).replace("-","_"))
+
+    @color.validator
+    def check_color(self, attribute, value):
+        if not value:
+            setattr(self,'color', colour.Color(pick_for=self))
+
+@attr.s
+class ColorMapThing(object):
+    color = attr.ib(default=None)
+    name =  attr.ib(default=None)
+    rough_amount =  attr.ib(default=0)
+
+    @color.validator
+    def check_color(self, attribute, value):
+        if not value:
+            setattr(self,'color', colour.Color(pick_for=self))
+
+    @name.validator
+    def check_name(self, attribute, value):
+        if value is None:
+            setattr(self, 'name', str(uuid.uuid4()).replace("-","_"))
+
+@attr.s
+class CellSpec(object):
+    # part this spec applies to
+    spec_for = attr.ib(default=None)
+    # layout field to use for classification
+    primary_layout_field = attr.ib(default="center")
+
+    @property
+    def primary_layout_key(self):
+        return self.cell_layout_map[self.primary_layout_field]
+
+    @spec_for.validator
+    def check_spec_for(self, attribute, value):
+        if value is None:
+            setattr(self, 'spec_for', str(uuid.uuid4()).replace("-","_"))
+
+    # get palette from elsewhere ?
+    # or dict:
+    # thing_name : color
+    palette = attr.ib(default=attr.Factory(dict))
+    amount = attr.ib(default=attr.Factory(dict))
+
+    # dict:
+    # top : some_thing_name
+    # bottom : some_thing_name
+    # left : some_thing_name
+    # right : some_thing_name
+    cell_layout_map = attr.ib(default=None)
+
+    # tuple (top, bottom, left, right)
+    cell_layout_margins = attr.ib(default=attr.Factory(dict))
+
+    cell_layout_meta = attr.ib(default=attr.Factory(dict))
+
+    @palette.validator
+    def check_Palette(self, attribute, value):
+        if not value:
+            setattr(self,'palette', dict({
+                                          "default" : colour.Color(pick_for=self)
+                                          }))
+
+    @cell_layout_map.validator
+    def check_layout_map(self, attribute, value):
+        if value is None or not value:
+            setattr(self,'cell_layout_map', dict({
+                                           "top": None,
+                                           "bottom": None,
+                                           "left": None,
+                                           "right": None,
+                                           "center": None
+                                          }))
+    @property
+    def palette_map(self):
+        palettes = self.palette()
+        mapped = {}
+        for layout_name, part_name in self.cell_layout_map.items():
+            mapped[layout_name] = None
+            for palette in palettes:
+                if palette.name == part_name:
+                    mapped[layout_name] = palette.color.hex_l
+
+        return mapped
+
+class CellSpecContainer(BoxLayout):
+    def __init__(self, **kwargs):
+        self.app = None
+        super(CellSpecContainer, self).__init__(**kwargs)
+
+    def spec(self):
+        specs = []
+        for cell_spec in self.children:
+            specs.append(cell_spec.cell_spec)
+        return specs
+
+    def add_cell_spec(self, cell_spec):
+        #cell_spec.height = 44
+        #cell_spec.size_hint_y = None
+        self.add_widget(cell_spec)
+        self.parent.scroll_to(cell_spec)
+
+    def remove_palette_thing(self, cell_spec_id):
+        for cell_spec in self.children:
+            try:
+                if cell_spec == cell_spec_id:
+                    del cell_spec.cell_spec
+                    self.remove_widget(cell_spec)
+            except AttributeError as ex:
+                pass
+
+    def generate_previews(self):
+        for cell_spec in self.children:
+            try:
+                cell_spec.generate_preview()
+            except AttributeError as ex:
+                pass
+        # update structure preview image
+        self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters)
+
+class CellSpecItem(BoxLayout):
+    def __init__(self, cell_spec, **kwargs):
+        self.cell_spec = cell_spec
+        self.cells_preview = Image()
+        self.meta_widgets = []
+        super(CellSpecItem, self).__init__(**kwargs)
+        preview_box = BoxLayout(orientation="vertical")
+        spec_name = DropDownInput(height=30, size_hint_y=None)
+        spec_name.bind(on_text_validate=lambda widget: self.set_name(widget.text))
+
+        preview_box.add_widget(spec_name)
+        preview_box.add_widget(self.cells_preview)
+        preview_box.add_widget(Button(text="del", height=30, size_hint_y=None))
+        # subsort here?
+        self.add_widget(preview_box)
+        self.generate_cell_layout_widgets()
+        self.init_meta()
+        self.generate_preview()
+
+    def set_name(self, name):
+        self.cell_spec.spec_for = name
+
+    def init_meta(self):
+        # set checkboxs to correct state on init
+        # important for restoring session from xml
+        for k, v in self.cell_spec.cell_layout_meta.items():
+            if v:
+                for w in self.meta_widgets:
+                    if k == w.meta_option:
+                        w.active = BooleanProperty(True)
+
+    def set_meta(self, widget, value):
+        if value:
+            if widget.meta_option == "primary":
+                self.cell_spec.primary_layout_field = widget.meta_option_area
+                # this should uncheck all other primary checkboxes, but does not
+                try:
+                    for w in widget.similar:
+                        if w != widget:
+                            if w.active:
+                                w.active = BooleanProperty(False)
+                except Exception as ex:
+                    print(ex)
+                    pass
+
+            if not widget.meta_option in self.cell_spec.cell_layout_meta:
+                self.cell_spec.cell_layout_meta[widget.meta_option] = []
+            if not (widget.meta_option_value.text,  widget.meta_option_area) in self.cell_spec.cell_layout_meta[widget.meta_option]:
+                self.cell_spec.cell_layout_meta[widget.meta_option].append((widget.meta_option_value.text,  widget.meta_option_area))
+        else:
+            try:
+                self.cell_spec.cell_layout_meta[widget.meta_option].remove((widget.meta_option_value.text,  widget.meta_option_area))
+            except:
+                pass
+        print(self.cell_spec.cell_layout_meta)
+        #print(widget.meta_option, widget.meta_option_value.text, widget.meta_option_area)
+
+    def generate_cell_layout_widgets(self):
+        rows =  BoxLayout(orientation="vertical")
+        similar={}
+        for area in ["top", "bottom", "left", "right", "center"]:
+            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+            row.add_widget(Label(text=area))
+            things = DropDownInput()
+            try:
+                if self.cell_spec.cell_layout_map[area]:
+                    things.text = str(self.cell_spec.cell_layout_map[area])
+            except KeyError:
+                pass
+            things.bind(on_text_validate=lambda widget, area=area: self.set_layout_region(area, widget.text))
+            margin = TextInput(multiline=False)
+            margin.margin_for = area
+            try:
+                if self.cell_spec.cell_layout_margins[area]:
+                    margin.text = str(self.cell_spec.cell_layout_margins[area])
+            except KeyError:
+                pass
+            margin.bind(on_text_validate=lambda widget: self.set_margin(widget.margin_for, widget.text, widget))
+            row.add_widget(things)
+            row.add_widget(Label(text="margin"))
+            row.add_widget(margin)
+
+            # meta options
+            meta_widgets = []
+            for meta_option in ["primary", "sortby", "continuous", "overlay"]:
+                if not meta_option in similar:
+                    similar[meta_option] = []
+                meta_toggle = CheckBox()
+                meta_toggle.meta_option = meta_option
+                meta_toggle.meta_option_value = things
+                meta_toggle.meta_option_area = area
+                meta_toggle.bind(active=self.set_meta)
+                if meta_option == "primary" and meta_toggle.meta_option_area == self.cell_spec.primary_layout_field:
+                    meta_toggle.active = BooleanProperty(True)
+                row.add_widget(meta_toggle)
+                row.add_widget(Label(text=meta_toggle.meta_option))
+                meta_widgets.append(meta_toggle)
+                similar[meta_option].append(meta_toggle)
+
+            rows.add_widget(row)
+        self.add_widget(rows)
+
+        for w in meta_widgets:
+            try:
+               w.similar = similar[w.meta_option]
+            except Exception as ex:
+                pass
+
+        self.meta_widgets = meta_widgets
+
+    def set_layout_region(self, region_area, region_name):
+        self.cell_spec.cell_layout_map[region_area] = region_name
+        self.generate_preview()
+
+    def set_margin(self, margin_name, margin_amout, widget=None):
+        try:
+            self.cell_spec.cell_layout_margins[margin_name] = int(margin_amout)
+        except Exception as ex:
+            if widget:
+                widget.text = ""
+        self.generate_preview()
+
+    def generate_preview(self):
+        preview = cell_preview(self.cell_spec, cells=3)[1]
+        self.cells_preview.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
+
+class CellSpecGenerator(BoxLayout):
+    def __init__(self, cell_spec_container, palette_source=None, amount_source=None, **kwargs):
+        self.cell_spec_container = cell_spec_container
+        self.palette_source = palette_source
+        self.amount_source = amount_source
+
+        super(CellSpecGenerator, self).__init__(**kwargs)
+        create_button = Button(text="create spec", size_hint_y=None, height=44)
+        create_button.bind(on_release=self.create_cell_spec)
+        self.add_widget(create_button)
+
+    def create_cell_spec(self, widget, cell_spec_args=None):
+        if cell_spec_args is None:
+            cell_spec_args = {}
+        cell_spec = CellSpecItem(CellSpec(palette=self.palette_source, amount=self.amount_source, **cell_spec_args))
+        self.cell_spec_container.add_cell_spec(cell_spec)
+
+    def specs(self):
+        s = []
+        for spec in self.children:
+            s.append(spec.cell_spec)
+        return s
+
+class SourcesPreview(BoxLayout):
+    def __init__(self, **kwargs):
+        self.parameters = {}
+        self.prefix = "glworb:*"
+        self.sources_unfiltered = TextInput(multiline=True)
+        self.sources = []
+        self.samples_per_key = 6
+        super(SourcesPreview, self).__init__(**kwargs)
+        top = BoxLayout(size_hint_y=1)
+        bottom = BoxLayout(size_hint_y=1, orientation="vertical")
+        bottom_input = BoxLayout(size_hint_y=None, height=30)
+        top.add_widget(self.sources_unfiltered)
+        parameter_widget = TextInput(multiline=False, hint_text=self.prefix)
+        parameter_widget.bind(on_text_validate=lambda widget: [setattr(self, 'prefix', widget.text), self.get_sources()])
+        sample_widget = TextInput(multiline=False, hint_text=str(self.samples_per_key))
+        sample_widget.bind(on_text_validate=lambda widget: [setattr(self, 'samples_per_key', int(widget.text)), self.sample_sources()])
+
+        sources_overview = TextInput(multiline=True)
+        bottom.add_widget(sources_overview)
+        bottom_input.add_widget(Label(text="prefix"))
+        bottom_input.add_widget(parameter_widget)
+        bottom_input.add_widget(Label(text="samples"))
+        bottom_input.add_widget(sample_widget)
+
+        bottom.add_widget(bottom_input)
+        self.sources_overview = sources_overview
+        self.add_widget(top)
+        self.add_widget(bottom)
+        self.get_sources()
+
+    def get_sources(self):
+        self.source_keys = list(redis_conn.scan_iter(match=self.prefix))
+        self.sources = []
+        for key in self.source_keys:
+            self.sources.append(redis_conn.hgetall(key))
+        self.sources_unfiltered.text = "\n".join(self.source_keys)
+        self.sample_sources()
+
+    def sample_sources(self):
+        sampled_overview = {}
+        self.sources_overview.text = ""
+        keys = set()
+        for source in self.sources:
+            keys.update(list(source.keys()))
+
+        for key in keys:
+            sampled_overview[key] = []
+            for _ in range(self.samples_per_key):
+                try:
+                    sampled_overview[key].append(random.choice(self.sources)[key])
+                except KeyError:
+                    pass
+
+        # pretty print into textinput
+        for sample_key, samples in sampled_overview.items():
+            line = "{:<50}\n".format(sample_key)
+            for sample in samples:
+                line +=  " "*50 +"{}\n".format(repr(sample))
+            self.sources_overview.text += line
+
+class StructurePreview(BoxLayout):
+    def __init__(self, spec_source=None, palette_source=None, source_source=None, **kwargs):
+        self.orientation = "vertical"
+        self.preview_image = Image()
+        self.spec_source = spec_source
+        self.palette_source = palette_source
+        self.source_source = source_source
+        self.parameters = {}
+        self.parameters["additional_test"] = 0
+        self.parameters["cell_width"] = 40
+        self.parameters["cell_height"] = 40
+        self.parameters["column_slots"] = 5
+        self.checkbox_widgets = []
+        self.parameter_widgets = []
+        super(StructurePreview, self).__init__(**kwargs)
+        top = BoxLayout(size_hint_y=1)
+        bottom = BoxLayout(size_hint_y=None, height=30)
+        top.add_widget(self.preview_image)
+        self.add_widget(top)
+
+        for parameter in ["cell_width", "cell_height", "column_slots", "additional_test"]:
+            bottom.add_widget(Label(text=parameter))
+            parameter_widget = DropDownInput()
+            parameter_widget.bind(on_text_validate=lambda widget, parameter=parameter: self.set_parameter(parameter, widget.text))
+            parameter_widget.parameter = parameter
+            try:
+                if self.parameters[parameter]:
+                    parameter_widget.text = str(self.parameters[parameter])
+            except KeyError:
+                pass
+            bottom.add_widget(parameter_widget)
+            self.parameter_widgets.append(parameter_widget)
+
+        for check_parameter in ["sources", "sparse_expected", "sparse_found", "sparse_found_from_zero", "ragged"]:
+            check_parameter_widget = CheckBox()
+            check_parameter_widget.text = check_parameter
+            check_parameter_widget.bind(active=self.set_check_parameter)
+            try:
+                if self.parameters[check_parameter] == True:
+                    check_parameter_widget.active = BooleanProperty(True)
+            except Exception as ex:
+                pass
+
+            bottom.add_widget(check_parameter_widget)
+            bottom.add_widget(Label(text=check_parameter))
+            self.checkbox_widgets.append(check_parameter_widget)
+
+        self.add_widget(bottom)
+        self.generate_structure_preview(parameters=self.parameters)
+
+    def update_parameter_widgets(self):
+        for widget in self.checkbox_widgets:
+            try:
+                if self.parameters[widget.text] == True:
+                    if not widget.active:
+                        widget.active = BooleanProperty(True)
+            except Exception as ex:
+                pass
+
+        for widget in self.parameter_widgets:
+            try:
+                widget.text = str(self.parameters[widget.parameter])
+            except Exception as ex:
+                pass
+
+    def set_check_parameter(self, widget, value):
+        # something is setting "sources" to a BooleanProperty
+        # for now just filter out
+        if not isinstance(value, BooleanProperty):
+            self.parameters[widget.text] = value
+            if widget.text == "sources":
+                self.generate_structure_preview(parameters=self.parameters)
+
+    def set_parameter(self, parameter, value):
+        try:
+            self.parameters[parameter] = int(value)
+        except:
+            pass
+        self.generate_structure_preview(parameters=self.parameters)
+
+    def generate_structure_preview(self, parameters=None):
+        self.update_parameter_widgets()
+        if parameters is None:
+            parameters = {}
+        sources = []
+        specs = self.spec_source()
+        try:
+            if self.parameters["sources"]:
+                sources = self.source_source.sources
+        except:
+            pass
+
+        if not sources:
+            for palette in self.palette_source():
+                for thing in palette.possiblities:
+                    for num in range(thing.rough_amount + self.parameters["additional_test"]):
+                        sources.append({palette.name : thing.name, "meta_number" : num, "meta_random" : random.randint(0,1000), "meta_choice" : random.choice(["1","2"])})
+
+        # lru cache may be useful here, but list is unhashable
+        # and would have to be changed
+        preview = structure_preview(sources, self.spec_source(), self.palette_source(), **parameters)[1]
+        self.preview_image.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
+
+    def generate_structures(self, parameters=None):
+        preview = structure_preview(test, self.spec_source(), self.palette_source(), **parameters)[1]
+
+class PaletteThingGenerator(BoxLayout):
+    def __init__(self, palette_thing_container, **kwargs):
+        self.palette_thing_container = palette_thing_container
+        super(PaletteThingGenerator, self).__init__(**kwargs)
+        create_button = Button(text="create palette thing", size_hint_y=None, height=44)
+        create_button.bind(on_release=self.create_palette_thing)
+        self.add_widget(create_button)
+
+    def create_palette_thing(self, widget, palette_args=None):
+        if palette_args is None:
+            palette_args = {}
+        palette_thing = PaletteThingItem(PaletteThing(**palette_args))
+        self.palette_thing_container.add_palette_thing(palette_thing)
+
+class PaletteThingContainer(BoxLayout):
+    def __init__(self, **kwargs):
+        self.app = None
+        super(PaletteThingContainer, self).__init__(**kwargs)
+
+    def palette(self):
+        p = []
+
+        for palette_thing in self.children:
+            p.append(palette_thing.palette_thing)
+        return p
+
+    def add_palette_thing(self, palette_thing):
+        palette_thing.height = 44
+        palette_thing.size_hint_y = None
+        self.add_widget(palette_thing)
+        self.parent.scroll_to(palette_thing)
+
+    def remove_palette_thing(self, palette_thing_id):
+        for palette_thing in self.children:
+            try:
+                if palette_thing == palette_thing_id:
+                    del palette_thing.palette_thing
+                    self.remove_widget(palette_thing)
+            except AttributeError as ex:
+                pass
+
+class PaletteThingItem(BoxLayout):
+    def __init__(self, palette_thing, **kwargs):
+        self.palette_thing = palette_thing
+        self.height = 60
+        self.minimum_height = 60
+        self.size_hint_y = None
+        super(PaletteThingItem, self).__init__(**kwargs)
+        self.generate_palette_overview()
+
+    def generate_palette_overview(self):
+        self.clear_widgets()
+        container = BoxLayout(orientation="vertical", size_hint_y=None)
+        row  = BoxLayout(orientation="horizontal", size_hint_y=1)
+        row_bottom  = BoxLayout(orientation="horizontal", size_hint_y=1)
+        row.add_widget(Label(text=""))
+        ordering = DropDownInput(hint_text=str(self.palette_thing.order_value))
+        row.add_widget(ordering)
+        ordering.bind(on_text_validate=lambda widget: self.set_order(widget.text, widget))
+
+        color_button = Button(text="", background_normal='')
+        color_button.bind(on_press= lambda widget=self, thing=self.palette_thing: self.pick_color(widget, thing))
+        color_button.background_color = (*self.palette_thing.color.rgb, 1)
+        row.add_widget(color_button)
+
+        set_name = TextInput(text=self.palette_thing.name, multiline=False)
+        set_name.bind(on_text_validate=lambda widget: self.set_name(widget.text))
+        row.add_widget(set_name)
+        add_possibility = DropDownInput()
+        add_possibility.bind(on_text_validate=lambda widget: self.add_possibility(widget.text))
+        row.add_widget(add_possibility)
+        for color_map_thing in self.palette_thing.possiblities:
+            possibility_color = color_map_thing.color.rgb
+            color_button = Button(text= color_map_thing.name, background_normal='')
+            color_button.possibility_name = color_map_thing.name
+            color_button.bind(on_press= lambda widget=self, thing=color_map_thing: self.pick_color(widget, thing))
+            color_button.background_color = (*possibility_color, 1)
+            row.add_widget(color_button)
+            rough_amount = DropDownInput(hint_text=str(color_map_thing.rough_amount))
+            rough_amount.bind(on_text_validate= lambda widget, thing=color_map_thing: self.set_rough_amount(widget.text, thing))
+            row.add_widget(rough_amount)
+
+        container.add_widget(row)
+        container.add_widget(row_bottom)
+        self.add_widget(container)
+
+    def set_order(self, order, widget=None):
+        try:
+            self.palette_thing.order_value = float(order)
+            self.broadcast_update()
+        except:
+            pass
+
+    def set_rough_amount(self, amount, thing):
+        try:
+            thing.rough_amount = int(amount)
+            self.generate_palette_overview()
+            self.broadcast_update()
+        except ValueError as ex:
+            pass
+
+    def set_name(self, name):
+        self.palette_thing.name = name
+        self.generate_palette_overview()
+        self.broadcast_update()
+
+    def add_possibility(self, name):
+        thing = ColorMapThing(name=name)
+        self.palette_thing.possiblities.append(thing)
+        self.generate_palette_overview()
+        self.broadcast_update()
+
+    def pick_color(self, set_widget=None, set_thing=None, *args):
+        color_picker = ColorPickerPopup()
+        color_picker.content.bind(color = lambda widget, value, set_widget=set_widget, set_thing=set_thing: self.on_color(widget, value, set_widget, set_thing))
+        color_picker.open()
+
+    def on_color(self, instance, value, target_widget, thing, *args):
+        thing.color = colour.Color(rgb=instance.color[:3])
+        target_widget.background_color = (*thing.color.rgb, 1)
+        self.generate_palette_overview()
+        self.broadcast_update()
+
+    def broadcast_update(self):
+        self.parent.app.session['cellspec'].generate_previews()
+
 class AccordionItemThing(AccordionItem):
     def __init__(self, **kwargs):
         super(AccordionItemThing, self).__init__(**kwargs)
@@ -123,346 +771,10 @@ class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
-        self.groups = []
         self.resize_size = 600
         self.folded_fold_width = 44
         self.folded_fold_height = Window.size[1]
-        self.group_widgets = OrderedDict()
-        self.palette = {}
-        self.group_sketch = {}
-        self.groups_to_show = {}
-        self.subsort = None
-        self.whitelist = {}
-        # for now generate thumbnails by starting app
-        # at some point move this functionality into
-        # a function that can be imported and run like
-        # ma-wip
-        self.thumbnail_only = False
-        self.thumbnail_name = "fold_thumbnail.jpg"
-        self.thumbnail_width = None
-        self.thumbnail_height = None
-        self.filter_key = "created"
-        # cli args
-        if 'filter_key' in kwargs:
-            if kwargs['filter_key']:
-                self.filter_key = kwargs['filter_key']
-
-        if 'group_amount' in kwargs:
-            if kwargs['group_amount']:
-                self.group_amount = kwargs['group_amount']
-        else:
-            self.group_amount = 5
-
-        if 'palette' in kwargs:
-            if isinstance(kwargs['palette'], dict):
-                print(kwargs['palette'])
-                self.palette = kwargs['palette']
-                if 'palette_name' in kwargs:
-                    if kwargs['palette_name']:
-                        print("saving palette")
-                        self.save_palette(kwargs['palette_name'], kwargs['palette'])
-
-        if 'palette_name' in kwargs and kwargs['palette'] is None:
-            self.palette = self.load_palette(kwargs['palette_name'])
-
-        if 'group_sketch' in kwargs:
-            if kwargs['group_sketch']:
-                self.group_sketch = kwargs['group_sketch']
-
-        if 'group_show' in kwargs:
-            if kwargs['group_show']:
-                self.groups_to_show = kwargs['group_show']
-
-        if 'continuity_key' in kwargs:
-            if kwargs['continuity_key']:
-                self.subsort = kwargs['continuity_key']
-
-        if 'whitelist_kv' in kwargs:
-            if kwargs['whitelist_kv']:
-                self.whitelist = kwargs['whitelist_kv']
-
-        if 'thumbnail_only' in kwargs:
-            if kwargs['thumbnail_only']:
-                self.thumbnail_only = kwargs['thumbnail_only']
-
-        if 'thumbnail_width' in kwargs:
-            if kwargs['thumbnail_width']:
-                self.thumbnail_width = kwargs['thumbnail_width']
-
-        if 'thumbnail_height' in kwargs:
-            if kwargs['thumbnail_height']:
-                self.thumbnail_height = kwargs['thumbnail_height']
-                if self.folded_fold_height < self.thumbnail_height:
-                    self.folded_fold_height = self.thumbnail_height
-
-        if 'thumbnail_name' in kwargs:
-            if kwargs['thumbnail_name']:
-                self.thumbnail_name = kwargs['thumbnail_name']
-
-        if 'xml_file' in kwargs:
-            # dss-ui exports xml
-            if kwargs['xml_file']:
-                xml = etree.parse(kwargs['xml_file'])
-                for record in xml.xpath('//category'):
-                    name = str(record.xpath("./@name")[0])
-                    color = str(record.xpath("./@color")[0])
-                    rough_amount = str(record.xpath("./@rough_amount")[0])
-                    rough_amount_start = str(record.xpath("./@rough_amount_start")[0])
-                    rough_amount_end = str(record.xpath("./@rough_amount_end")[0])
-                    rough_order = str(record.xpath("./@rough_order")[0])
-                    self.palette[name] = {}
-                    self.palette[name]["fill"] = color
-                    if not "created" in self.group_sketch:
-                        self.group_sketch["created"] = {}
-                    self.group_sketch["created"][name] = int(rough_amount)
-
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
-
-    def save_palette(self, palette_name, palette):
-        """ Save a palette. Flatten the palette
-        dictionary to store as redis hash"""
-        flattened_palette = {}
-        for category, colors in palette.items():
-            for k,v in colors.items():
-                if isinstance(v, tuple) or isinstance(v, list):
-                    v = ",".join([str(s) for s in v])
-                flattened_palette["{}____{}".format(category, k)] = v
-
-        r.hmset("palette:{}".format(palette_name), flattened_palette)
-
-    def load_palette(self, palette_name):
-        """ Load a palette from redis.
-        """
-        unflattened_palette = {}
-        palette = r.hgetall("palette:{}".format(palette_name))
-
-        if palette:
-            for k,v in palette.items():
-                print(k,v)
-                if "____" in k:
-                    category, subkey = k.split("____")
-
-                    if not category in unflattened_palette:
-                        unflattened_palette[category] = {}
-
-                    if not subkey in unflattened_palette[category]:
-                        unflattened_palette[category][subkey] = ""
-
-                    if "," in v:
-                        v = tuple([int(s) for s in v.split(",")])
-
-                    unflattened_palette[category][subkey] = v
-            return unflattened_palette
-        else:
-            return {}
-
-    def populate(self, *args):
-        """Check for glworbs not in folds and
-        add"""
-        print("updating...")
-        print("filtering by {}".format(self.filter_key))
-        binary_keys = ["binary_key", "binary", "image_binary_key"]
-        fold_thumbnails = []
-
-        # dict({"chapter" : {"chapter1":60,"chapter2":60}})
-        sketched_expiry = 1000
-        sketched = {}
-
-        for category in self.group_sketch.keys():
-            if category == self.filter_key:
-                for field_value, amount in self.group_sketch[category].items():
-                    sketched[field_value] = {}
-                    sketched[field_value]['amount'] = amount
-                    sketched[field_value]['ids']  = []
-                    for num in range(amount):
-                        hash_name = "tmpsketch:{}:{}:{}".format(category, field_value, num)
-                        r.hset(hash_name, category, field_value)
-                        r.expire(hash_name, sketched_expiry)
-                        sketched[field_value]['ids'].append(hash_name)
-
-        glworbs = data_models.filter_data_to_dict(filter_key=self.filter_key, pattern='glworb:*', subsort=self.subsort, whitelist=self.whitelist)
-
-        # use glworbs_reference to assert
-        # that no glworbs are missing after
-        # adding sketches
-        glworbs_reference = []
-        for k,v in glworbs.items():
-            glworbs_reference.extend(v)
-
-        glworbs_sketched_out = []
-
-        for field_value in sketched.keys():
-            try:
-                sketch_amount = sketched[field_value]['amount'] - len(glworbs[field_value])
-            except KeyError:
-                sketch_amount = sketched[field_value]['amount']
-                if not field_value in glworbs:
-                    glworbs[field_value] = []
-            if sketch_amount > 0:
-                print("{} will be sketched out by {}".format(field_value, sketch_amount))
-                glworbs[field_value].extend(sketched[field_value]['ids'][:sketch_amount])
-
-        # sort dictionary by keyname
-        for key in sorted(glworbs):
-            if not self.groups_to_show or key in self.groups_to_show:
-                glworbs_sketched_out.extend(glworbs[key])
-
-        if not self.groups_to_show:
-            assert set(glworbs_reference).issubset(set(glworbs_sketched_out))
-
-        groups = list(group_into(self.group_amount, glworbs_sketched_out ))
-
-        continuous_series = []
-        continuous_mask = []
-        for group_num, group in enumerate(groups):
-            if group not in self.groups:
-                # print("{new} not in groups".format(new=group))
-                # a partial group may now have additional items.
-                # Check if the first item matches and then
-                # remove old partial widget and all
-                # widgets after. Widgets will be repopulated
-                # by new groups
-                for i, g in enumerate(self.groups):
-                    if group[0] == g[0]:
-                        insertion_index = 0
-                        for k, v in self.group_widgets.items():
-                            if insertion_index >= i:
-                                self.remove_widget(self.group_widgets[k])
-                                del self.group_widgets[k]
-                            insertion_index += 1
-
-                group_container = ScatterTextWidget()
-                fold_status = []
-                widgets_to_add = []
-                for glworb_num, glworb in enumerate(group):
-                    if glworb:
-                        glworb_values = r.hgetall(glworb)
-                        keys = glworb_values.keys()
-                        if self.subsort:
-                            print(glworb_values)
-                            try:
-                                continuous_series.append(glworb_values[self.subsort])
-                            except:
-                                continuous_series.append(None)
-                            try:
-                                if len(continuous_series) == 1:
-                                    continuous_mask.append(-1)
-                                elif int(continuous_series[-2]) == int(continuous_series[-1]) - 1:
-                                    continuous_mask[-1] = 0
-                                    continuous_mask.append(0)
-                                else:
-                                    continuous_mask.append(-1)
-                            except Exception as ex:
-                                print("continuous:", ex)
-                                continuous_mask.append(None)
-                        keys = set(glworb_values)
-
-                        if self.thumbnail_only is True:
-                            for bkey in binary_keys:
-                                data = r.hget(glworb, bkey)
-                                if data:
-                                    print("{} has data".format(bkey))
-                                    break
-                            # skip loading and resizing for thumbnail only
-                            if data:
-                                fold_status.append({"binary" : "data", self.filter_key : r.hget(glworb, self.filter_key)})
-                            else:
-                                fold_status.append({"binary" : "None", self.filter_key : r.hget(glworb, self.filter_key)})
-                        elif self.thumbnail_only is False:
-                            for bkey in binary_keys:
-                                data = r.hget(glworb, bkey)
-                                if data:
-                                    print("{} has data".format(bkey))
-                                    break
-                            try:
-                                data = bimg_resized(data, self.resize_size, linking_uuid=glworb)
-                            except OSError:
-                                data = None
-
-                            if data:
-                                fold_status.append({"binary" : "data", self.filter_key : r.hget(glworb, self.filter_key)})
-                            else:
-                                fold_status.append({"binary" : "None", self.filter_key : r.hget(glworb, self.filter_key)})
-                                # generate a placeholder
-                                placeholder = PImage.new('RGB', (self.resize_size, self.resize_size), (155, 155, 155, 1))
-                                data_model_string = data_models.pretty_format(r.hgetall(glworb), glworb)
-                                # sketched will have no data
-                                # use their id string instead
-                                # sketched ids may or may not
-                                # be unique
-                                if not data_model_string:
-                                    data_model_string = glworb
-                                placeholder = data_models.img_overlay(placeholder, data_model_string, 50, 50, 12)
-                                file = io.BytesIO()
-                                placeholder.save(file, 'JPEG')
-                                placeholder.close()
-                                file.seek(0)
-                                data = file
-
-                            img = ClickableImage(size_hint_y=None,
-                                                 size_hint_x=None,
-                                                 allow_stretch=True,
-                                                 keep_ratio=True)
-                            img.texture = CoreImage(data, ext="jpg").texture
-                            #widgets_to_add.append((img, index=len(group_container.image_grid.children))
-                            widgets_to_add.append(functools.partial(group_container.image_grid.add_widget,img, index=len(group_container.image_grid.children)))
-
-                    group_container.keys = keys
-
-                for widget in widgets_to_add:
-                    widget()
-
-                fold_status_image_name = sequence_status(len(group),
-                                                    fold_status,
-                                                    abs(hash(str(group))),
-                                                    width=self.folded_fold_width,
-                                                    height=self.folded_fold_height,
-                                                    step_offset=group_num*self.group_amount,
-                                                    background_palette_field=self.filter_key,
-                                                    texturing=continuous_mask[group_num*self.group_amount:(group_num*self.group_amount)+glworb_num+1],
-                                                    coloring=self.palette)
-
-                if self.thumbnail_only is False:
-
-                    fold_title = "{group_num} : {range_start} - {range_end}".format(group_num=str(group_num),
-                                                                                range_start=group_num*self.group_amount,
-                                                                                range_end=group_num*self.group_amount+glworb_num)
-                    fold = AccordionItemThing(title=fold_title,
-                                              background_normal=fold_status_image_name,
-                                              background_selected=fold_status_image_name)
-
-                    fold.thing = group_container
-                    fold.add_widget(group_container)
-                    self.add_widget(fold)
-                    self.group_widgets[str(group)] = fold
-
-                if self.thumbnail_only is True:
-                    fold_thumbnails.append(fold_status_image_name)
-
-        self.groups = groups
-
-        if self.thumbnail_only is True:
-            if fold_thumbnails:
-                fold_thumbnails = [PImage.open(s) for s in fold_thumbnails]
-
-                thumb_width = sum([i.size[0] for i in fold_thumbnails])
-                thumb_height = max([i.size[1] for i in fold_thumbnails])
-                thumb_img = PImage.new('RGB', (thumb_width, thumb_height))
-
-                x_offset = 0
-                for img in fold_thumbnails:
-                  thumb_img.paste(img, (x_offset, 0))
-                  x_offset += img.size[0]
-
-                # resize thumbnail if height or width specified
-                if self.thumbnail_width or self.thumbnail_height:
-                    thumb_img.thumbnail((self.thumbnail_width, self.thumbnail_height), PImage.ANTIALIAS)
-                thumb_img.save(self.thumbnail_name)
-
-            # exit...
-            App.get_running_app().stop()
-            import sys
-            sys.exit()
 
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
@@ -647,11 +959,6 @@ class ScatterTextWidget(BoxLayout):
         self.image_grid.bind(minimum_height=self.image_grid.setter('height'),
                              minimum_width=self.image_grid.setter('width'))
 
-    def change_label_colour(self, *args):
-
-        colour = [random.random() for i in range(3)] + [1]
-        self.text_colour = colour
-
     def on_touch_up(self, touch):
 
         if touch.button == 'right':
@@ -679,10 +986,6 @@ class ScatterTextWidget(BoxLayout):
                     pass
         return super(ScatterTextWidget, self).on_touch_up(touch)
 
-def group_into(n, iterable, fillvalue=None):
-    args = [iter(iterable)] * n
-    return itertools.zip_longest(fillvalue=fillvalue, *args)
-
 def bimg_resized(uuid, new_size, linking_uuid=None):
     contents = binary_r.get(uuid)
     f = io.BytesIO()
@@ -691,7 +994,7 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
     img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
     extension = img.format
     if linking_uuid:
-        data_model_string = data_models.pretty_format(r.hgetall(linking_uuid), linking_uuid)
+        data_model_string = data_models.pretty_format(redis_conn.hgetall(linking_uuid), linking_uuid)
         # escape braces
         data_model_string = data_model_string.replace("{","{{")
         data_model_string = data_model_string.replace("}","}}")
@@ -708,48 +1011,236 @@ class FoldedInlayApp(App):
     def __init__(self, *args, **kwargs):
         # store kwargs to passthrough
         self.kwargs = kwargs
+        self.session_save_path = "~/.config/fold/"
+        self.session_save_filename = "session.xml"
+        self.session = {}
+        self.restore_session = True
+        self.xml_files_to_load = []
         super(FoldedInlayApp, self).__init__()
 
     def build(self):
 
-        root = AccordionContainer(orientation='horizontal',**self.kwargs)
-        populate_interval = 10
-        root.populate()
-        Clock.schedule_interval(root.populate, populate_interval)
+        root = Accordion(orientation='vertical')
+        folds = AccordionContainer(orientation='horizontal',**self.kwargs)
+        config = BoxLayout(orientation="vertical")
+        preview = BoxLayout(orientation="vertical")
+        sources = BoxLayout(orientation="vertical")
+
+        top = BoxLayout()
+        bottom = BoxLayout(size_hint_y=None)
+        palette_layout = PaletteThingContainer(orientation="vertical", size_hint_y=None, height=800, minimum_height=200)
+        palette_layout.app = self
+        palette_scroll = ScrollView(bar_width=20)
+        palette_scroll.add_widget(palette_layout)
+
+        cellspec_layout = CellSpecContainer(orientation="vertical", size_hint_y=None, height=800, minimum_height=200)
+        cellspec_layout.app = self
+        cellspec_scroll = ScrollView(bar_width=20)
+        cellspec_scroll.add_widget(cellspec_layout)
+
+        # cellspec_layout.add_widget(CellSpecItem(CellSpec("foo", palette=palette_layout.palette, amount=palette_layout.amount)))
+        # palette_layout.add_widget(PaletteThingItem(PaletteThing("foo")))
+        top.add_widget(cellspec_scroll)
+        top.add_widget(palette_scroll)
+        cell_spec_generator = CellSpecGenerator(cellspec_layout, palette_source=palette_layout.palette)
+        bottom.add_widget(cell_spec_generator)
+        bottom.add_widget(PaletteThingGenerator(palette_layout))
+
+        config.add_widget(top)
+        config.add_widget(bottom)
+
+        sources_preview = SourcesPreview()
+        sources.add_widget(sources_preview)
+
+        structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview)
+        preview.add_widget(structure_preview)
+        for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources")]:
+            item = AccordionItem(title="{}".format(title))
+            item.add_widget(top_level_item)
+            root.add_widget(item)
+
+        # use session dict for saving / reloading session to/from xml
+        self.session['palette'] = palette_layout
+        self.session['cellspec'] = cellspec_layout
+        self.session['cell_spec_generator'] = cell_spec_generator
+        self.session['structure'] = structure_preview
+
+        folds.structure = structure_preview
+        self.load_session()
+        # populate_interval = 10
+        # folds.populate()
+        # Clock.schedule_interval(folds.populate, populate_interval)
+        Clock.schedule_interval(lambda foo: structure_preview.generate_structure_preview(parameters=structure_preview.parameters), 10)
         return root
 
+    def generate_xml(self, write_output=False, output_filename=None, output_type=None, output_path=None):
+        machine = etree.Element("machine")
+        session = etree.Element("session")
+        machine.append(session)
+
+        #possiblities=[ColorMapThing(color=<Color #066e1f>, name='12', rough_amount=12)]
+        for palette_thing in self.session['palette'].palette():
+            palette = etree.Element("palette")
+            palette.set("name", str(palette_thing.name))
+            palette.set("color", str(palette_thing.color.hex_l))
+            palette.set("order_value", str(palette_thing.order_value))
+            for possibility in palette_thing.possiblities:
+                p = etree.Element("possibility")
+                p.set("color", str(possibility.color.hex_l))
+                p.set("name", str(possibility.name))
+                p.set("rough_amount", str(possibility.rough_amount))
+                palette.append(p)
+            session.append(palette)
+
+        for cell_spec in self.session['cellspec'].spec():
+            cellspec =  etree.Element("cellspec")
+            cellspec.set("spec_for", cell_spec.spec_for)
+            cellspec.set("primary_layout_field", cell_spec.primary_layout_field)
+            layout_map =  etree.Element("map", name="layout_map")
+            for k, v in cell_spec.cell_layout_map.items():
+                layout_map.append(etree.Element("element", name=str(k), value=str(v)))
+
+            layout_margins =  etree.Element("map", name="layout_margins")
+            for k, v in cell_spec.cell_layout_margins.items():
+                layout_margins.append(etree.Element("element", name=str(k), value=str(v)))
+
+            layout_meta =  etree.Element("map", name="layout_meta")
+            for k, v in cell_spec.cell_layout_meta.items():
+                try:
+                    element = etree.Element("element", name=k)
+                    for value in v:
+                        nested_value =  etree.Element("item", area=value[0], name=value[1])
+                        element.append(nested_value)
+                    layout_meta.append(element)
+                except TypeError:
+                    pass
+
+            cellspec.append(layout_map)
+            cellspec.append(layout_margins)
+            cellspec.append(layout_meta)
+            session.append(cellspec)
+
+        structure =  etree.Element("structure")
+        for parameter_name, parameter_value in self.session['structure'].parameters.items():
+            structure.set(str(parameter_name), str(parameter_value))
+        session.append(structure)
+
+        if write_output is True:
+            machine_root = etree.ElementTree(machine)
+            xml_filename = output_filename
+            if not os.path.isdir(output_path):
+                os.mkdir(output_path)
+
+            if os.path.isfile(os.path.join(output_path, output_filename)):
+                os.remove(os.path.join(output_path, output_filename))
+
+            if output_type == "xml":
+                machine_root.write(os.path.join(output_path, xml_filename), pretty_print=True)
+
+    def save_session(self):
+        # self.save_defaults()
+        # add hook to run on exit()
+        expanded_path = os.path.expanduser(self.session_save_path)
+        if not os.path.isdir(expanded_path):
+            print("creating: {}".format(expanded_path))
+            os.mkdir(expanded_path)
+        self.generate_xml(write_output=True, output_filename=self.session_save_filename, output_path=expanded_path, output_type="xml")
+
+    def load_session(self):
+        # self.load_defaults()
+        files_to_restore = []
+
+        if self.restore_session is True:
+            session_file = os.path.join(self.session_save_path, self.session_save_filename)
+            session_file = os.path.expanduser(session_file)
+            files_to_restore.append(session_file)
+
+        for file in self.xml_files_to_load:
+            files_to_restore.append(file)
+
+        session_xml = {}
+        project_xml = {}
+
+        for file in files_to_restore:
+            if os.path.isfile(file):
+                try:
+                    xml = etree.parse(file)
+                    print("restoring {}".format(xml))
+                    for session in xml.xpath('//session'):
+                        # restore palettes
+                        for palette in session.xpath('//palette'):
+                            palette_args = {}
+                            palette_args["name"] = str(palette.xpath("./@name")[0])
+                            palette_args["color"] = colour.Color(str(palette.xpath("./@color")[0]))
+                            palette_args["order_value"] = float(palette.xpath("./@order_value")[0])
+                            palette_thing = PaletteThing(**palette_args)
+                            for possibility in palette.xpath('.//possibility'):
+                                possibility_args = {}
+                                possibility_args["color"] = colour.Color(str(possibility.xpath("./@color")[0]))
+                                possibility_args["name"] = str(possibility.xpath("./@name")[0])
+                                possibility_args["rough_amount"] = int(float(possibility.xpath("./@rough_amount")[0]))
+                                palette_thing.possiblities.append(ColorMapThing(**possibility_args))
+                            palette_thing = PaletteThingItem(palette_thing)
+                            self.session['palette'].add_palette_thing(palette_thing)
+
+                        # restore cellspecs
+                        for cellspec in session.xpath('//cellspec'):
+                            cellspec_args = {}
+                            cellspec_args["spec_for"] = str(cellspec.xpath("./@spec_for")[0])
+                            cellspec_args["primary_layout_field"] = str(cellspec.xpath("./@primary_layout_field")[0])
+                            for cellspecmap in cellspec.xpath('.//map'):
+                                mapname = str(cellspecmap.xpath("./@name")[0])
+                                cellspec_args["cell_"+mapname] = {}
+                                name = None
+                                value = None
+                                for element in cellspecmap:# cellspecmap.xpath('.//element'): #cellspecmap: #cellspecmap.xpath('//element'):
+                                    name = str(element.xpath("./@name")[0])
+                                    try:
+                                        value = str(element.xpath("./@value")[0])
+                                        try:
+                                            value = int(value)
+                                        except:
+                                            pass
+                                        if value == "None":
+                                            value = None
+                                        cellspec_args["cell_"+mapname][name] = value
+                                    except IndexError as ex:
+                                        if not name in cellspec_args["cell_"+mapname]:
+                                            cellspec_args["cell_"+mapname][name] = []
+                                        if not cellspec_args["cell_"+mapname][name]:
+                                            cellspec_args["cell_"+mapname][name] = []
+
+                                        for item in element:
+                                            item_name =  str(item.xpath("./@name")[0])
+                                            item_area =  str(item.xpath("./@area")[0])
+                                            if not (item_area, item_name) in cellspec_args["cell_"+mapname][name]:
+                                                cellspec_args["cell_"+mapname][name].append((item_area, item_name))
+                            # use generator
+                            self.session['cell_spec_generator'].create_cell_spec(None, cell_spec_args=cellspec_args)
+
+                        # restore structure parameters
+                        for structure in session.xpath('//structure'):
+                            for attrib in structure.attrib:
+                                value = structure.get(attrib)
+                                try:
+                                    value = int(value)
+                                except:
+                                    pass
+                                if value == "True":
+                                    value = True
+                                elif value == "False":
+                                    value = False
+                                self.session['structure'].parameters[attrib] = value
+                            self.session['structure'].generate_structure_preview(parameters=self.session['structure'].parameters)
+                except etree.XMLSyntaxError as ex:
+                    print("cannot parse xml from file: {}, ignoring".format(file))
+
 def main():
-    tutorial_string = """
-    """
-    # kivy grabs argv, use a double dash
-    # before argparse args
-    # change grouping amount:
-    #
-    #     python3 fold_lattice_ui.py -- --group-amount 20
-    #
-    # change window size and create/save palette:
-    #
-    #     python3 fold_lattice_ui.py --size=1500x800  -- --filter-key source_uid \
-    #     --palette '{"roman": { "border":"black", "fill": [155,155,255,1]}}' --palette-name foo
-    #
-    # visually sketch groups (values for field)
-    # --group-sketch '{"chapter" : {"chapter1":60,"chapter2":60}}'
-
-    parser = argparse.ArgumentParser(description=tutorial_string,formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--group-amount", type=int, help="group by",default=5)
-    parser.add_argument("--filter-key",  help="filter by")
-    parser.add_argument("--palette-name",  help="palette to use")
-    parser.add_argument("--palette", type=json.loads,  help="palette in json format, will be stored if --palette-name supplied")
-    parser.add_argument("--group-sketch", type=json.loads,  help="create placeholders / expected to sketch out structure")
-    parser.add_argument("--group-show", nargs='+', default=[], help="show only subset of groups")
-    parser.add_argument("--continuity-key",  help="visual continuity / discontinuity of key (integer) values")
-    parser.add_argument("--whitelist-kv", type=json.loads,  help="key:value pairs to whitelist. Example : {\"method\" : [\"slurp_gphoto2\"]}")
-    parser.add_argument("--thumbnail-only", action='store_true', help="create a thumbnail and exit")
-    parser.add_argument("--thumbnail-width", type=int, help="thumbnail width")
-    parser.add_argument("--thumbnail-height", type=int, help="thumbnail height")
-    parser.add_argument("--thumbnail-name", help="thumbnail filename")
+    parser = argparse.ArgumentParser()
     parser.add_argument("--xml-file",  help="xml file to use")
-
+    parser.add_argument("--xml-key",  help="db key containing xml to access")
     args = parser.parse_args()
 
-    FoldedInlayApp(**vars(args)).run()
+    app = FoldedInlayApp(**vars(args))
+    atexit.register(app.save_session)
+    app.run()

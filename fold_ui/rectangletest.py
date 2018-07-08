@@ -4,13 +4,308 @@
 #
 # Copyright (c) 2018, Galen Curwen-McAdams
 
-from PIL import Image as PILImage, ImageDraw, ImageColor
+from PIL import Image as PILImage, ImageDraw, ImageColor, ImageFont
 import functools
+import operator
+import io
+import uuid
+import math
 
 def vertical_texture(draw, spacing, top, height, width):
     # draw mutable, so no return
     for space in range(0, width, round(width / spacing)):
         draw.line((space, top, space, top + height), width=2, fill=(255, 255, 255, 128))
+
+def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, **kwargs):
+
+    # sparse_expected
+    # sparse_found until, padded list initialized as expected size
+    if cell_width is None:
+        cell_width = 15
+
+    if cell_height is None:
+        cell_height = 30
+
+    if column_slots is None:
+        column_slots = 10
+
+    specs = {}
+    specs[None] = {}
+
+    overall_structure = {}
+
+    ordering = {p.name : p.order_value for p in palette}
+
+    for s in spec:
+        specs[s.primary_layout_key] = s
+        overall_structure[s.primary_layout_key] = []
+
+    cells = []
+    subsorted_cells = []
+
+    # allocate slots for broad structure by primary_keys
+    # allocate / subsort if needed
+    matched = []
+    for cell in structure:
+        for k, v in cell.items():
+            for s in spec:
+                if s.primary_layout_key == k:
+                    overall_structure[k].append(cell)
+                    matched.append(cell)
+
+    for s in spec:
+        try:
+            for key, area in s.cell_layout_meta["sortby"]:
+                try:
+                    overall_structure[s.primary_layout_key].sort(key=operator.itemgetter(key))
+                    if sparse_found_from_zero or sparse_found:
+                        try:
+                            print(sparse_found, sparse_found_from_zero)
+                            sparse_found_begin = overall_structure[s.primary_layout_key][0][key]
+                            sparse_found_end = overall_structure[s.primary_layout_key][-1][key]
+                            # None's from 0 position?
+                            #sparse_found = [None] * (sparse_found_end - sparse_found_begin)
+                            sparse_found_padded = [None] * (sparse_found_end + 1)
+
+                            for i, item in enumerate(overall_structure[s.primary_layout_key]):
+                                sparse_found_padded.insert(int(item[key]), item)
+
+                            if sparse_found_from_zero or sparse_found:
+                                # prune trailing None's
+                                while sparse_found_padded and sparse_found_padded[-1] is None:
+                                    sparse_found_padded.pop()
+
+                            if sparse_found:
+                                # prune leading Nones
+                                print("pruning leading")
+                                while sparse_found_padded and sparse_found_padded[0] is None:
+                                    sparse_found_padded.pop(0)
+
+                            overall_structure[s.primary_layout_key] = sparse_found_padded
+                        except Exception as ex:
+                            print(ex)
+                except Exception as ex:
+                    print(ex)
+        except Exception as ex:
+            print(ex)
+
+    sorted_cells = []
+    # print(ordering, overall_structure.keys())
+    ordering = sorted(ordering.items(), key=lambda kv: kv[1])
+
+    for k, _ in ordering:
+        try:
+            print("adding {}".format(k))
+            sorted_cells.extend(overall_structure[k])
+        except KeyError as ex:
+            print(ex)
+            pass
+    # for k, v in overall_structure.items():
+    #     sorted_cells.extend(v)
+    unmatched = [cell for cell in structure if not cell in matched]
+
+    for cell in sorted_cells:
+        try:
+            for k, v in cell.items():
+                for s in spec:
+                    if s.primary_layout_key == k:
+                        cells.append(cell_preview(s, cell, meta=s.cell_layout_meta, width=cell_width, height=cell_height)[1])
+        except AttributeError:
+            # a padding None
+            cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1])
+
+    for cell in unmatched:
+        cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1])
+
+    total_width = math.ceil(len(cells)/column_slots) * cell_width
+    total_height = int(column_slots * cell_height)
+
+    if not total_width:
+        total_width = 1
+
+    #print("structure_preview", structure, spec, palette, cells, total_width, total_height)
+
+    img = PILImage.new('RGB', (total_width, total_height), background_color)
+    draw = ImageDraw.Draw(img, 'RGBA')
+    x =0
+    y = 0
+    row_pos = 0
+    for i, cell in enumerate(cells):
+        c = PILImage.open(cell)
+        img.paste(c, (x, y))
+        # print(i, x, y)
+        if row_pos == (column_slots - 1):
+            row_pos = 0
+            x += cell_width
+            y = 0
+        else:
+            row_pos += 1
+            y += cell_height
+
+    if filename:
+        image_filename = '/tmp/{}.jpg'.format(str(uuid.uuid4()))
+        img.save(image_filename)
+        filename = image_filename
+    # img.show()
+    file = io.BytesIO()
+    extension = 'JPEG'
+    img.save(file, extension)
+    img.close()
+    file.seek(0)
+
+    return (filename, file)
+
+
+
+def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, margins=None, default_margin=5, regions=None, palette=None, background_color=(155, 155, 155, 255), filename=None):
+    # prefer spec object over kwargs
+    # try:
+    #     spec.cell_layout_meta["overlay"] = ["page_number"]
+    # except:
+    #     pass
+
+    try:
+        margins = spec.cell_layout_margins
+    except:
+        pass
+
+    # default colors used if spec and cell are None
+    palette_map = dict({
+                       "top": "lightgray",
+                       "bottom": "darkgray",
+                       "left": "lightgray",
+                       "right": "darkgray",
+                       "center": "gray"
+                      })
+
+    try:
+        palette_map.update(spec.palette_map)
+    except AttributeError as ex:
+        #print(ex)
+        pass
+
+    if margins is None:
+        margins = {}
+
+    margin_names = ("top", "bottom", "left", "right")
+
+    for margin_name in margin_names:
+        if not margin_name in margins:
+            margins[margin_name] = default_margin
+
+    if regions is None:
+        regions = {}
+
+    if palette is None:
+        palette = {}
+
+    def cell_top(region_margin=margins["top"], x=0, y=0):
+        return (x, y, x + width, y + region_margin)
+
+    def cell_bottom(region_margin=margins["bottom"], x=0, y=0):
+        return (x, y + height - region_margin, x + width, y + height)
+
+    def cell_left(region_margin=margins["left"], x=0, y=0):
+        return (x, y, x + region_margin, y + height)
+
+    def cell_right(region_margin=margins["right"], x=0, y=0):
+        return (x + width -region_margin, y, x + width, y + height)
+
+    def cell_center(region_margin=margins, x=0, y=0):
+        return (x + region_margin["left"], y + region_margin["top"], x + width - region_margin["right"], y + height - region_margin["bottom"])
+
+    img = PILImage.new('RGB', (width, height * cells), background_color)
+    draw = ImageDraw.Draw(img, 'RGBA')
+
+    cell_y_offset = 0
+    for _ in range(cells):
+        meta_calls = []
+        for region, color in palette_map.items():
+            if region == "top":
+                call = cell_top
+            elif region == "bottom":
+                call = cell_bottom
+            elif region == "left":
+                call = cell_left
+            elif region == "right":
+                call = cell_right
+            elif region == "center":
+                call = cell_center
+
+            if cell:
+                # try to override color here
+                # for k, v in spec.cell_layout_map.items():
+                #{'top': None, 'bottom': None, 'left': None, 'right': None, 'center': 'c'}
+                #[PaletteThing(name='c', possiblities=[ColorMapThing(color=<Color #9017f0>, name='c1', rough_amount=12)], color=<Color #1648e0>)]
+                key_name = spec.cell_layout_map[region]
+                try:
+                    value = cell[key_name]
+                    for palette_thing in spec.palette():
+                        if palette_thing.name == key_name:
+                            for possiblity in palette_thing.possiblities:
+                                if possiblity.name == value:
+                                    color = possiblity.color.hex_l
+                except Exception as ex:
+                    # print(ex)
+                    # print(spec.cell_layout_map)
+                    # print(cell)
+                    pass
+
+            try:
+                draw.rectangle(call(y=cell_y_offset),fill=color)
+            except Exception as ex:
+                pass
+
+            try:
+                #print(spec.cell_layout_meta.items(), spec.cell_layout_map.items())
+                for meta, field_names in  spec.cell_layout_meta.items():
+                    for field_name, field_area in field_names:
+                        for k, v in spec.cell_layout_map.items():
+                            if v == field_name:
+                                #print("==", v, field_name)
+                                if k == region:
+                                    #print("==", k, region)
+                                    if field_area == region:
+                                        if meta == "overlay":
+                                            #print("overlay")
+                                            try:
+                                                font = ImageFont.truetype("DejaVuSerif-Bold.ttf", 20)
+                                            except Exception as ex:
+                                                print(ex)
+                                                font = None
+                                            text =str(cell[field_name])
+                                            text_width, text_height = draw.textsize(text, font=font)
+                                            text_x_offset = 0
+                                            text_y_offset = 0
+                                            if region == "right":
+                                                text_x_offset = (-1 * text_width)
+                                            elif region == "top":
+                                                text_y_offset = int((1 * text_height) / 2)
+                                            elif region == "bottom":
+                                                text_y_offset = (-1 * text_height)
+                                            meta_calls.append(functools.partial(draw.text, call(y=cell_y_offset+text_y_offset,x=text_x_offset)[:2], text, fill="black", font=font))
+            except Exception as ex:
+                #print(ex)
+                pass
+
+        # print("calling meta calls", meta_calls)
+        for meta_call in meta_calls:
+            meta_call()
+        cell_y_offset += height
+
+
+    if filename:
+        image_filename = '/tmp/{}.jpg'.format(str(uuid.uuid4()))
+        img.save(image_filename)
+        filename = image_filename
+
+    file = io.BytesIO()
+    extension = 'JPEG'
+    img.save(file, extension)
+    img.close()
+    file.seek(0)
+
+    return (filename, file)
 
 def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_palette_field="", texturing=None, coloring=None):
 
