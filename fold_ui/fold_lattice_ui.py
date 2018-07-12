@@ -49,6 +49,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.accordion import Accordion, AccordionItem
+from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.clock import Clock
 
 from ma_cli import data_models
@@ -1151,7 +1152,7 @@ class FoldedInlayApp(App):
 
     def build(self):
 
-        root = Accordion(orientation='vertical')
+        root =  TabbedPanel(do_default_tab=False)
         folds = AccordionContainer(orientation='horizontal', **self.kwargs)
         folds.app = self
         config = BoxLayout(orientation="vertical")
@@ -1190,7 +1191,7 @@ class FoldedInlayApp(App):
         structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview, app=self)
         preview.add_widget(structure_preview)
         for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources")]:
-            item = AccordionItem(title="{}".format(title))
+            item = TabbedPanelItem(text="{}".format(title))
             item.add_widget(top_level_item)
             root.add_widget(item)
 
