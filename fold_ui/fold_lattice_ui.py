@@ -151,6 +151,9 @@ class DropDownInput(TextInput):
         if args[1] not in [btn.text for btn in self.drop_down.children[0].children if hasattr(btn ,'text')]:
             self.drop_down.append(Button(text=args[1]))
             self.not_preloaded.add(btn)
+        # call on_text_validate after selection
+        # to avoid having to select textinput and press enter
+        self.dispatch('on_text_validate')
 
     def on_touch_down(self, touch):
         preloaded = set()
