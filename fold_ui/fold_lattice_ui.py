@@ -13,6 +13,8 @@ import json
 import redis
 from collections import OrderedDict
 import atexit
+import inspect
+import sys
 import argparse
 import functools
 import uuid
@@ -327,16 +329,16 @@ class CellSpecContainer(BoxLayout):
 class CellSpecItem(BoxLayout):
     def __init__(self, cell_spec, **kwargs):
         self.cell_spec = cell_spec
-        self.cells_preview = Image()
+        self.cells_preview = Image(size_hint_x=None)
         self.meta_widgets = []
         super(CellSpecItem, self).__init__(**kwargs)
-        preview_box = BoxLayout(orientation="vertical")
-        spec_name = DropDownInput(height=30, size_hint_y=None)
+        preview_box = BoxLayout(orientation="vertical", size_hint_x=None)
+        spec_name = DropDownInput(height=30, size_hint_y=None, size_hint_x=None)
         spec_name.bind(on_text_validate=lambda widget: self.set_name(widget.text))
 
         preview_box.add_widget(spec_name)
         preview_box.add_widget(self.cells_preview)
-        preview_box.add_widget(Button(text="del", height=30, size_hint_y=None))
+        preview_box.add_widget(Button(text="del", height=30, size_hint_y=None, size_hint_x=None))
         # subsort here?
         self.add_widget(preview_box)
         self.generate_cell_layout_widgets()
@@ -382,10 +384,10 @@ class CellSpecItem(BoxLayout):
         #print(widget.meta_option, widget.meta_option_value.text, widget.meta_option_area)
 
     def generate_cell_layout_widgets(self):
-        rows =  BoxLayout(orientation="vertical")
+        rows =  BoxLayout(orientation="vertical", size_hint_x=1)
         similar={}
         for area in ["top", "bottom", "left", "right", "center"]:
-            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None, size_hint_x=1)
             row.add_widget(Label(text=area))
             things = DropDownInput()
             try:
@@ -479,29 +481,63 @@ class SourcesPreview(BoxLayout):
         self.prefix = "glworb:*"
         self.sources_unfiltered = TextInput(multiline=True)
         self.sources = []
+        self.source_fields = set()
         self.samples_per_key = 6
         super(SourcesPreview, self).__init__(**kwargs)
-        top = BoxLayout(size_hint_y=1)
+        self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewer" in c[0]]
+        self.item_preview = BoxLayout(orientation="vertical")
+        preview = BoxLayout()
         bottom = BoxLayout(size_hint_y=1, orientation="vertical")
         bottom_input = BoxLayout(size_hint_y=None, height=30)
-        top.add_widget(self.sources_unfiltered)
         parameter_widget = TextInput(multiline=False, hint_text=self.prefix)
         parameter_widget.bind(on_text_validate=lambda widget: [setattr(self, 'prefix', widget.text), self.get_sources()])
         sample_widget = TextInput(multiline=False, hint_text=str(self.samples_per_key))
         sample_widget.bind(on_text_validate=lambda widget: [setattr(self, 'samples_per_key', int(widget.text)), self.sample_sources()])
-
-        sources_overview = TextInput(multiline=True)
-        bottom.add_widget(sources_overview)
         bottom_input.add_widget(Label(text="prefix"))
         bottom_input.add_widget(parameter_widget)
         bottom_input.add_widget(Label(text="samples"))
         bottom_input.add_widget(sample_widget)
 
         bottom.add_widget(bottom_input)
+        sources_overview = BoxLayout(orientation="vertical", size_hint_y=None, height=1000, minimum_height=200)
+        sources_scroll = ScrollView(bar_width=20)
+        sources_scroll.add_widget(sources_overview)
+        bottom.add_widget(sources_scroll)
         self.sources_overview = sources_overview
-        self.add_widget(top)
+
+        self.key_selection = DropDownInput()
+        self.load_key_as = DropDownInput(preload=[c[0] for c in self.viewerclasses])
+        self.annotation = DropDownInput(preload=["META_FILENAME"])
+
+        input_bar = BoxLayout(size_hint_y=None, height=30)
+        self.key_selection.bind(on_text_validate=lambda widget: self.generate_preview())
+        self.load_key_as.bind(on_text_validate=lambda widget: self.generate_preview())
+        self.annotation.bind(on_text_validate=lambda widget: self.generate_preview())
+
+        input_bar.add_widget(self.key_selection)
+        input_bar.add_widget(self.load_key_as)
+        input_bar.add_widget(self.annotation)
+        preview.add_widget(self.item_preview)
+        preview.add_widget(input_bar)
+        self.add_widget(preview)
         self.add_widget(bottom)
         self.get_sources()
+
+    def generate_preview(self):
+        try:
+            self.item_preview.clear_widgets()
+            self.item_preview.add_widget(Label(text="{}({})".format(self.key_selection.text, self.load_key_as.text)))
+            self.item_preview.add_widget(Label(text="{}".format(self.annotation.text)))
+            self.item_class = [c[1] for c in self.viewerclasses if c[0] == self.load_key_as.text][0]
+            self.item_key = self.key_selection.text
+            self.app.session["folds"].create_folds()
+        except IndexError:
+            # no viewerclass selected
+            pass
+
+    def init(self):
+        self.key_selection.preload = sorted(list(self.source_fields))
+        self.annotation.preload.extend(sorted(list(self.source_fields)))
 
     def get_sources(self):
         self.source_keys = list(redis_conn.scan_iter(match=self.prefix))
@@ -513,12 +549,12 @@ class SourcesPreview(BoxLayout):
 
     def sample_sources(self):
         sampled_overview = {}
-        self.sources_overview.text = ""
-        keys = set()
+        self.sources_overview.clear_widgets()
+        self.sources_overview.height = 0
         for source in self.sources:
-            keys.update(list(source.keys()))
+            self.source_fields.update(list(source.keys()))
 
-        for key in keys:
+        for key in self.source_fields:
             sampled_overview[key] = []
             for _ in range(self.samples_per_key):
                 try:
@@ -526,20 +562,115 @@ class SourcesPreview(BoxLayout):
                 except KeyError:
                     pass
 
-        # pretty print into textinput
+        column_names = BoxLayout(orientation="horizontal")
+        column_names.add_widget(Label(text=" "*10))
+        for viewer_class in self.viewerclasses:
+            column_names.add_widget(Label(text=viewer_class[0]))
+        self.sources_overview.add_widget(column_names)
+
         for sample_key, samples in sampled_overview.items():
-            line = "{:<50}\n".format(sample_key)
+            self.sources_overview.add_widget(Label(text=str(sample_key)))
             for sample in samples:
-                line +=  " "*50 +"{}\n".format(repr(sample))
-            self.sources_overview.text += line
+                sample_row = BoxLayout(orientation="horizontal", size_hint_y=1)
+                sample_row.add_widget(Label(text=str(repr(sample))))
+                for viewer_class in self.viewerclasses:
+                    try:
+                        a = viewer_class[1](sample)
+                        sample_row.add_widget(a)
+                    except:
+                        sample_row.add_widget(Label(text="X"))
+                self.sources_overview.add_widget(sample_row)
+                self.sources_overview.height += sample_row.height
+
+class ClickableImage(Image):
+    def __init__(self, **kwargs):
+        super(ClickableImage, self).__init__(**kwargs)
+
+    def on_touch_down(self, touch):
+        if touch.button == 'left':
+            if self.collide_point(touch.pos[0], touch.pos[1]):
+                pass
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+
+        if touch.button == 'right':
+            p = touch.pos
+            o = touch.opos
+            s = min(p[0], o[0]), min(p[1], o[1]), abs(p[0] - o[0]), abs(p[1] - o[1])
+            w = s[2]
+            h = s[3]
+            sx = s[0]
+            sy = s[1]
+            if abs(w) > 5 and abs(h) > 5:
+
+                if self.collide_point(touch.pos[0], touch.pos[1]):
+                    self.add_widget(Selection(pos=(sx, sy), size=(w, h)))
+                    print("added widget for ", self)
+                    print(self.texture_size, self.norm_image_size, self.size)
+                    width_scale = self.texture_size[0] / self.norm_image_size[0]
+                    height_scale = self.texture_size[1] / self.norm_image_size[1]
+                    width_offset = (self.size[0] - self.norm_image_size[0]) / 2
+                    print("touch", touch.pos, touch.opos)
+
+                    # touch.push()
+                    # touch.apply_transform_2d(self.to_local)
+                    # #touch.apply_transform_2d(self.to_local)
+                    # print("zzztouch",touch.pos,touch.opos)
+                    # touch.pop()
+                    print("window pos", self.to_window(*self.pos))
+
+                    print("touch", touch.pos, touch.opos)
+                    print("--------------")
+        return super().on_touch_up(touch)
+
+class AnnotatedImageViewViewer(BoxLayout):
+    def __init__(self, source, **kwargs):
+        super(AnnotatedImageViewViewer, self).__init__(**kwargs)
+        try:
+            resize_to = 600
+            image_data = bimg_resized(source, resize_to)
+            img = ClickableImage(size_hint_y=None,
+                                 size_hint_x=None,
+                                 allow_stretch=True,
+                                 keep_ratio=True)
+            img.texture = CoreImage(image_data, ext="jpg").texture
+            self.add_widget(img)
+            self.add_widget(Label(text="----"))
+            self.size = img.norm_image_size
+        except Exception as ex:
+            print(ex)
+            raise ValueError("")
+
+class ImageViewViewer(ClickableImage):
+    def __init__(self, source, **kwargs):
+        # self.size_hint_y=None
+        # self.size_hint_x=None
+        # self.allow_stretch=True
+        # self.keep_ratio=True
+        try:
+            resize_to = 600
+            image_data = bimg_resized(source, resize_to)
+            self.texture = CoreImage(image_data, ext="jpg").texture
+            self.size = self.norm_image_size
+        except Exception as ex:
+            print(ex)
+            raise ValueError("")
+        super(ImageViewViewer, self).__init__(**kwargs)
+
+class TextViewViewer(BoxLayout):
+    def __init__(self, source, **kwargs):
+        super(TextViewViewer, self).__init__(**kwargs)
+        self.add_widget(Label(text=str(source)))
 
 class StructurePreview(BoxLayout):
-    def __init__(self, spec_source=None, palette_source=None, source_source=None, **kwargs):
+    def __init__(self, spec_source=None, palette_source=None, source_source=None, app=None, **kwargs):
         self.orientation = "vertical"
         self.preview_image = Image()
         self.spec_source = spec_source
         self.palette_source = palette_source
         self.source_source = source_source
+        self.app = app
         self.parameters = {}
         self.parameters["additional_test"] = 0
         self.parameters["cell_width"] = 40
@@ -635,9 +766,21 @@ class StructurePreview(BoxLayout):
         # and would have to be changed
         preview = structure_preview(sources, self.spec_source(), self.palette_source(), **parameters)[1]
         self.preview_image.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
+        self.app.session["folds"].create_folds()
 
-    def generate_structures(self, parameters=None):
-        preview = structure_preview(test, self.spec_source(), self.palette_source(), **parameters)[1]
+    def generate_structure_columns(self, parameters=None):
+        self.update_parameter_widgets()
+        if parameters is None:
+            parameters = {}
+        sources = []
+        specs = self.spec_source()
+        try:
+            if self.parameters["sources"]:
+                sources = self.source_source.sources
+        except:
+            pass
+
+        return structure_preview(sources, self.spec_source(), self.palette_source(), return_columns=True, **parameters)
 
 class PaletteThingGenerator(BoxLayout):
     def __init__(self, palette_thing_container, **kwargs):
@@ -779,6 +922,33 @@ class AccordionContainer(Accordion):
         self.folded_fold_height = Window.size[1]
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
+    def create_folds(self):
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
+        try:
+            self.clear_widgets()
+            for filename, filebytes, sources in self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters):
+                print(filename, filebytes)
+                fold = AccordionItemThing(background_normal=filename, background_selected=filename)
+                fold.thing = ScatterTextWidget()
+                fold.add_widget(fold.thing)
+                resize_to = 600
+                for source in sources:
+                    try:
+                        item = self.app.session['sources'].item_class(source[self.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
+                        # image_data = bimg_resized(source["binary_key"], resize_to)
+                        # item = ClickableImage(size_hint_y=None,
+                        #                      size_hint_x=None,
+                        #                      allow_stretch=True,
+                        #                      keep_ratio=True)
+                        # item.texture = CoreImage(image_data, ext="jpg").texture
+                        fold.thing.image_grid.add_widget(item)
+                    except:
+                        pass
+                self.add_widget(fold)
+        except KeyError:
+            pass
+
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
         self._keyboard = None
@@ -871,48 +1041,6 @@ class AccordionContainer(Accordion):
         elif keycode[1] == 'c' and 'ctrl' in modifiers:
             App.get_running_app().stop()
 
-class ClickableImage(Image):
-    def __init__(self, **kwargs):
-        super(ClickableImage, self).__init__(**kwargs)
-
-    def on_touch_down(self, touch):
-        if touch.button == 'left':
-            if self.collide_point(touch.pos[0], touch.pos[1]):
-                pass
-        return super().on_touch_down(touch)
-
-    def on_touch_up(self, touch):
-
-        if touch.button == 'right':
-            p = touch.pos
-            o = touch.opos
-            s = min(p[0], o[0]), min(p[1], o[1]), abs(p[0] - o[0]), abs(p[1] - o[1])
-            w = s[2]
-            h = s[3]
-            sx = s[0]
-            sy = s[1]
-            if abs(w) > 5 and abs(h) > 5:
-
-                if self.collide_point(touch.pos[0], touch.pos[1]):
-                    self.add_widget(Selection(pos=(sx, sy), size=(w, h)))
-                    print("added widget for ", self)
-                    print(self.texture_size, self.norm_image_size, self.size)
-                    width_scale = self.texture_size[0] / self.norm_image_size[0]
-                    height_scale = self.texture_size[1] / self.norm_image_size[1]
-                    width_offset = (self.size[0] - self.norm_image_size[0]) / 2
-                    print("touch", touch.pos, touch.opos)
-
-                    # touch.push()
-                    # touch.apply_transform_2d(self.to_local)
-                    # #touch.apply_transform_2d(self.to_local)
-                    # print("zzztouch",touch.pos,touch.opos)
-                    # touch.pop()
-                    print("window pos", self.to_window(*self.pos))
-
-                    print("touch", touch.pos, touch.opos)
-                    print("--------------")
-        return super().on_touch_up(touch)
-
 class ScrollViewer(ScrollView):
     #def on_scroll_move(self, *args,**kwargs):
     #    print(args)
@@ -996,12 +1124,12 @@ def bimg_resized(uuid, new_size, linking_uuid=None):
     img = PImage.open(f)
     img.thumbnail((new_size, new_size), PImage.ANTIALIAS)
     extension = img.format
-    if linking_uuid:
-        data_model_string = data_models.pretty_format(redis_conn.hgetall(linking_uuid), linking_uuid)
-        # escape braces
-        data_model_string = data_model_string.replace("{","{{")
-        data_model_string = data_model_string.replace("}","}}")
-        img = data_models.img_overlay(img, data_model_string, 50, 50, 12)
+    # if linking_uuid:
+    #     data_model_string = data_models.pretty_format(redis_conn.hgetall(linking_uuid), linking_uuid)
+    #     # escape braces
+    #     data_model_string = data_model_string.replace("{","{{")
+    #     data_model_string = data_model_string.replace("}","}}")
+    #     img = data_models.img_overlay(img, data_model_string, 50, 50, 12)
     file = io.BytesIO()
     img.save(file, extension)
     img.close()
@@ -1024,7 +1152,8 @@ class FoldedInlayApp(App):
     def build(self):
 
         root = Accordion(orientation='vertical')
-        folds = AccordionContainer(orientation='horizontal',**self.kwargs)
+        folds = AccordionContainer(orientation='horizontal', **self.kwargs)
+        folds.app = self
         config = BoxLayout(orientation="vertical")
         preview = BoxLayout(orientation="vertical")
         sources = BoxLayout(orientation="vertical")
@@ -1053,9 +1182,12 @@ class FoldedInlayApp(App):
         config.add_widget(bottom)
 
         sources_preview = SourcesPreview()
+        sources_preview.app = self
         sources.add_widget(sources_preview)
 
-        structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview)
+        self.session['folds'] = folds
+
+        structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview, app=self)
         preview.add_widget(structure_preview)
         for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources")]:
             item = AccordionItem(title="{}".format(title))
@@ -1067,13 +1199,13 @@ class FoldedInlayApp(App):
         self.session['cellspec'] = cellspec_layout
         self.session['cell_spec_generator'] = cell_spec_generator
         self.session['structure'] = structure_preview
+        self.session['sources'] = sources_preview
 
         folds.structure = structure_preview
+        sources_preview.init()
         self.load_session()
-        # populate_interval = 10
-        # folds.populate()
-        # Clock.schedule_interval(folds.populate, populate_interval)
-        Clock.schedule_interval(lambda foo: structure_preview.generate_structure_preview(parameters=structure_preview.parameters), 10)
+        # Clock.schedule_interval(lambda foo: structure_preview.generate_structure_preview(parameters=structure_preview.parameters), 10)
+        folds.create_folds()
         return root
 
     def generate_xml(self, write_output=False, output_filename=None, output_type=None, output_path=None):

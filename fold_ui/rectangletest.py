@@ -16,7 +16,7 @@ def vertical_texture(draw, spacing, top, height, width):
     for space in range(0, width, round(width / spacing)):
         draw.line((space, top, space, top + height), width=2, fill=(255, 255, 255, 128))
 
-def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, **kwargs):
+def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
 
     # sparse_expected
     # sparse_found until, padded list initialized as expected size
@@ -109,51 +109,88 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
             for k, v in cell.items():
                 for s in spec:
                     if s.primary_layout_key == k:
-                        cells.append(cell_preview(s, cell, meta=s.cell_layout_meta, width=cell_width, height=cell_height)[1])
+                        cells.append(cell_preview(s, cell, meta=s.cell_layout_meta, width=cell_width, height=cell_height)[1:])
         except AttributeError:
             # a padding None
-            cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1])
+            cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1:])
 
     for cell in unmatched:
-        cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1])
+        cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1:])
 
-    total_width = math.ceil(len(cells)/column_slots) * cell_width
-    total_height = int(column_slots * cell_height)
+    if return_columns is True:
+        total_width = cell_width
+        total_height = int(column_slots * cell_height)
+        if not total_width:
+            total_width = 1
 
-    if not total_width:
-        total_width = 1
-
-    #print("structure_preview", structure, spec, palette, cells, total_width, total_height)
-
-    img = PILImage.new('RGB', (total_width, total_height), background_color)
-    draw = ImageDraw.Draw(img, 'RGBA')
-    x =0
-    y = 0
-    row_pos = 0
-    for i, cell in enumerate(cells):
-        c = PILImage.open(cell)
-        img.paste(c, (x, y))
-        # print(i, x, y)
-        if row_pos == (column_slots - 1):
-            row_pos = 0
-            x += cell_width
+        cell_start = 0
+        columns = []
+        for col in range(math.ceil(len(cells)/column_slots)):
+            column_cells = []
+            img = PILImage.new('RGB', (total_width, total_height), background_color)
+            draw = ImageDraw.Draw(img, 'RGBA')
+            x =0
             y = 0
-        else:
-            row_pos += 1
-            y += cell_height
+            row_pos = 0
+            for cell, cell_source in cells[cell_start:cell_start + column_slots]:
+                column_cells.append(cell_source)
+                c = PILImage.open(cell)
+                img.paste(c, (x, y))
+                row_pos += 1
+                y += cell_height
+            cell_start += column_slots
+            filename = True
+            if filename:
+                image_filename = '/tmp/{}.jpg'.format(str(uuid.uuid4()))
+                img.save(image_filename)
+                filename = image_filename
+            #img.show()
+            file = io.BytesIO()
+            extension = 'JPEG'
+            img.save(file, extension)
+            img.close()
+            file.seek(0)
+            columns.append((filename, file, column_cells))
+        #return (filename, file)
+        return columns
+    else:
+        total_width = math.ceil(len(cells)/column_slots) * cell_width
+        total_height = int(column_slots * cell_height)
 
-    if filename:
-        image_filename = '/tmp/{}.jpg'.format(str(uuid.uuid4()))
-        img.save(image_filename)
-        filename = image_filename
-    # img.show()
-    file = io.BytesIO()
-    extension = 'JPEG'
-    img.save(file, extension)
-    img.close()
-    file.seek(0)
+        if not total_width:
+            total_width = 1
 
-    return (filename, file)
+        #print("structure_preview", structure, spec, palette, cells, total_width, total_height)
+
+        img = PILImage.new('RGB', (total_width, total_height), background_color)
+        draw = ImageDraw.Draw(img, 'RGBA')
+        x =0
+        y = 0
+        row_pos = 0
+        for cell, cell_source in cells:
+            c = PILImage.open(cell)
+            img.paste(c, (x, y))
+            # print(i, x, y)
+            if row_pos == (column_slots - 1):
+                row_pos = 0
+                x += cell_width
+                y = 0
+            else:
+                row_pos += 1
+                y += cell_height
+
+        if filename:
+            image_filename = '/tmp/{}.jpg'.format(str(uuid.uuid4()))
+            img.save(image_filename)
+            filename = image_filename
+        # img.show()
+        file = io.BytesIO()
+        extension = 'JPEG'
+        img.save(file, extension)
+        img.close()
+        file.seek(0)
+
+        return (filename, file)
 
 
 
@@ -305,7 +342,7 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
     img.close()
     file.seek(0)
 
-    return (filename, file)
+    return (filename, file, cell)
 
 def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0, background_palette_field="", texturing=None, coloring=None):
 
