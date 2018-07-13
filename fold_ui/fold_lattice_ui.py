@@ -477,28 +477,57 @@ class CellSpecGenerator(BoxLayout):
         return s
 
 class SourcesPreview(BoxLayout):
-    def __init__(self, **kwargs):
+    def __init__(self, app=None, **kwargs):
         self.parameters = {}
         self.prefix = "glworb:*"
         self.sources_unfiltered = TextInput(multiline=True)
         self.sources = []
         self.source_fields = set()
         self.samples_per_key = 6
+        self.app = app
         super(SourcesPreview, self).__init__(**kwargs)
         self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewer" in c[0]]
         self.item_preview = BoxLayout(orientation="vertical")
+        self.scheduled_poll = None
         preview = BoxLayout()
         bottom = BoxLayout(size_hint_y=1, orientation="vertical")
+        db_input = BoxLayout(size_hint_y=.3, size_hint_x=1, orientation="vertical")
         bottom_input = BoxLayout(size_hint_y=None, height=30)
         parameter_widget = TextInput(multiline=False, hint_text=self.prefix)
         parameter_widget.bind(on_text_validate=lambda widget: [setattr(self, 'prefix', widget.text), self.get_sources()])
         sample_widget = TextInput(multiline=False, hint_text=str(self.samples_per_key))
         sample_widget.bind(on_text_validate=lambda widget: [setattr(self, 'samples_per_key', int(widget.text)), self.sample_sources()])
-        bottom_input.add_widget(Label(text="prefix"))
-        bottom_input.add_widget(parameter_widget)
+        host = redis_conn.connection_pool.connection_kwargs["host"]
+        port = redis_conn.connection_pool.connection_kwargs["port"]
+        self.host_widget = TextInput(multiline=False, hint_text=str(host))
+        self.port_widget = TextInput(multiline=False, hint_text=str(port))
+        self.port_widget.bind(on_text_validate=lambda widget: self.change_db_settings())
+        self.host_widget.bind(on_text_validate=lambda widget: self.change_db_settings())
+        self.poll_widget = CheckBox()
+        self.keyspace_widget = CheckBox()
+        self.keyspace_widget.active = BooleanProperty(True)
+        self.poll_widget.bind(active=lambda widget, value: self.change_db_settings(widget))
+        self.keyspace_widget.bind(active=lambda widget, value: self.change_db_settings(widget))
+        self.poll_input = TextInput(multiline=False, text=str(10))
+        self.lookup_button = Button(text="lookup")
+        self.lookup_button.bind(on_press=lambda widget: self.change_db_settings(widget))
+
+        for row in ((Label(text="host"), self.host_widget),
+                    (Label(text="port"), self.port_widget),
+                    (self.lookup_button,),
+                    (self.poll_widget, Label(text="poll (seconds)"), self.poll_input),
+                    (self.keyspace_widget, Label(text="keyspace")),
+                    (Label(text="prefix"), parameter_widget)
+                    ):
+            row_container = BoxLayout(size_hint_y=1, size_hint_x=1, height=30)
+            for item in row:
+                row_container.add_widget(item)
+            db_input.add_widget(row_container)
+
+
         bottom_input.add_widget(Label(text="samples"))
         bottom_input.add_widget(sample_widget)
-
+        bottom.add_widget(db_input)
         bottom.add_widget(bottom_input)
         sources_overview = BoxLayout(orientation="vertical", size_hint_y=None, height=1000, minimum_height=200)
         sources_scroll = ScrollView(bar_width=20)
@@ -524,6 +553,36 @@ class SourcesPreview(BoxLayout):
         self.add_widget(bottom)
         self.get_sources()
 
+    def change_db_settings(self, widget=None):
+        global r_ip
+        global r_port
+        global binary_r
+        global redis_conn
+        if widget == self.lookup_button:
+            r_ip, r_port = data_models.service_connection()
+            binary_r = redis.StrictRedis(host=r_ip, port=r_port)
+            redis_conn = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
+            self.host_widget.text = r_ip
+            self.port_widget.text = str(r_port)
+        elif self.host_widget.text and self.port_widget.text:
+            db_settings = {"host" : self.host_widget.text, "port" : int(self.port_widget.text)}
+            binary_r = redis.StrictRedis(**db_settings)
+            redis_conn = redis.StrictRedis(**db_settings, decode_responses=True)
+
+        if self.keyspace_widget.active and widget == self.keyspace_widget:
+            self.db_event_subscription.thread = self.db_event_subscription.run_in_thread(sleep_time=0.001)
+        elif not self.keyspace_widget.active and widget == self.keyspace_widget:
+            self.app.db_event_subscription.thread.stop()
+
+        if self.poll_widget.active and widget == self.poll_widget:
+            try:
+                self.scheduled_poll.cancel()
+            except AttributeError:
+                pass
+            self.scheduled_poll = Clock.schedule_interval(lambda foo: self.get_sources(), int(self.poll_input.text))
+        elif not self.poll_widget.active and widget == self.poll_widget:
+            self.scheduled_poll.cancel()
+
     def generate_preview(self):
         try:
             self.item_preview.clear_widgets()
@@ -541,12 +600,17 @@ class SourcesPreview(BoxLayout):
         self.annotation.preload.extend(sorted(list(self.source_fields)))
 
     def get_sources(self):
+        print("getting sources")
         self.source_keys = list(redis_conn.scan_iter(match=self.prefix))
         self.sources = []
         for key in self.source_keys:
             self.sources.append(redis_conn.hgetall(key))
         self.sources_unfiltered.text = "\n".join(self.source_keys)
         self.sample_sources()
+        try:
+            self.app.session["folds"].create_folds()
+        except KeyError:
+            pass
 
     def sample_sources(self):
         sampled_overview = {}
@@ -745,7 +809,10 @@ class StructurePreview(BoxLayout):
             pass
         self.generate_structure_preview(parameters=self.parameters)
 
-    def generate_structure_preview(self, parameters=None):
+    def generate_structure_preview(self, parameters=None, create_folds=None):
+        print("generating...", parameters)
+        if create_folds is None:
+            create_folds = True
         self.update_parameter_widgets()
         if parameters is None:
             parameters = {}
@@ -767,7 +834,8 @@ class StructurePreview(BoxLayout):
         # and would have to be changed
         preview = structure_preview(sources, self.spec_source(), self.palette_source(), **parameters)[1]
         self.preview_image.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
-        self.app.session["folds"].create_folds()
+        if create_folds is True:
+            self.app.session["folds"].create_folds()
 
     def generate_structure_columns(self, parameters=None):
         self.update_parameter_widgets()
@@ -934,22 +1002,25 @@ class AccordionContainer(Accordion):
                 fold.thing = ScatterTextWidget()
                 fold.add_widget(fold.thing)
                 resize_to = 600
-                for source in sources:
-                    try:
-                        item = self.app.session['sources'].item_class(source[self.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
-                        # image_data = bimg_resized(source["binary_key"], resize_to)
-                        # item = ClickableImage(size_hint_y=None,
-                        #                      size_hint_x=None,
-                        #                      allow_stretch=True,
-                        #                      keep_ratio=True)
-                        # item.texture = CoreImage(image_data, ext="jpg").texture
-                        fold.thing.image_grid.add_widget(item)
-                    except:
-                        pass
+                # for source in sources:
+                #     try:
+                #         item = self.app.session['sources'].item_class(source[self.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
+                #         # image_data = bimg_resized(source["binary_key"], resize_to)
+                #         # item = ClickableImage(size_hint_y=None,
+                #         #                      size_hint_x=None,
+                #         #                      allow_stretch=True,
+                #         #                      keep_ratio=True)
+                #         # item.texture = CoreImage(image_data, ext="jpg").texture
+                #         fold.thing.image_grid.add_widget(item)
+                #     except:
+                #         pass
                 self.add_widget(fold)
         except KeyError:
             pass
-
+        try:
+            self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters, create_folds=False)
+        except KeyError:
+            pass
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
         self._keyboard = None
@@ -1150,6 +1221,20 @@ class FoldedInlayApp(App):
         self.xml_files_to_load = []
         super(FoldedInlayApp, self).__init__()
 
+    def on_stop(self):
+        # stop pubsub thread if window closed with '[x]'
+        self.db_event_subscription.thread.stop()
+
+    def app_exit(self):
+        self.db_event_subscription.thread.stop()
+        App.get_running_app().stop()
+
+    def handle_db_events(self, message):
+        print(message)
+        if self.session['sources'].prefix in message["channel"]:
+            pass
+        Clock.schedule_once(lambda dt:  self.session['sources'].get_sources())
+
     def build(self):
 
         root =  TabbedPanel(do_default_tab=False)
@@ -1182,11 +1267,11 @@ class FoldedInlayApp(App):
         config.add_widget(top)
         config.add_widget(bottom)
 
-        sources_preview = SourcesPreview()
-        sources_preview.app = self
-        sources.add_widget(sources_preview)
 
+        sources_preview = SourcesPreview(app=self)
+        sources.add_widget(sources_preview)
         self.session['folds'] = folds
+
 
         structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview, app=self)
         preview.add_widget(structure_preview)
@@ -1205,7 +1290,12 @@ class FoldedInlayApp(App):
         folds.structure = structure_preview
         sources_preview.init()
         self.load_session()
-        # Clock.schedule_interval(lambda foo: structure_preview.generate_structure_preview(parameters=structure_preview.parameters), 10)
+
+        self.db_event_subscription = redis_conn.pubsub()
+        self.db_event_subscription.psubscribe(**{'__keyspace@0__:*': self.handle_db_events})
+        # add thread to pubsub object to stop() on exit
+        self.db_event_subscription.thread = self.db_event_subscription.run_in_thread(sleep_time=0.001)
+
         folds.create_folds()
         return root
 
