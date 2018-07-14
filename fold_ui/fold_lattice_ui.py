@@ -626,6 +626,8 @@ class SourcesPreview(BoxLayout):
                     sampled_overview[key].append(random.choice(self.sources)[key])
                 except KeyError:
                     pass
+                except IndexError:
+                    pass
 
         column_names = BoxLayout(orientation="horizontal")
         column_names.add_widget(Label(text=" "*10))
