@@ -15,6 +15,7 @@ name="fold_ui",
     dependency_links=["https://github.com/galencm/ma-cli/tarball/master#egg=ma_cli-0.1"],
     entry_points = {'console_scripts': ['ma-ui-fold = fold_ui.fold_lattice_ui:main',
                                         'fold-ui = fold_ui.fold_lattice_ui:main',
+                                        'fold-ui-fairytale = fold_ui.fairy_tale:main',
                                        ],
                             },
 )
