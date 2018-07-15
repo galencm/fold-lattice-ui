@@ -594,6 +594,10 @@ class SourcesPreview(BoxLayout):
         elif not self.poll_widget.active and widget == self.poll_widget:
             self.scheduled_poll.cancel()
 
+        # clear source fields, if any from previous db
+        self.source_fields = set()
+        self.get_sources()
+
     def generate_preview(self):
         try:
             self.item_preview.clear_widgets()
