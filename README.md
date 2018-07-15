@@ -26,6 +26,32 @@ pip3 install --editable ./ --user --process-dependency-links
 ma-ui-fold --size=1500x800
 ```
 
+## Testing with fairytale
+
+Fairytale is a program to generate structured and destructured test material for fold-ui
+
+It is available on the commandline as `fold-ui-fairytale`
+
+A simple example shows the creation of 600 items on a specified redis server (by default both fold-ui and fairytale will attempt to connect to redis via service discovery).
+
+Start a redis server:
+
+```
+redis-server --port 6379
+```
+
+Run fairytale:
+
+```
+fold-ui-fairytale --db-host 127.0.0.1 --db-port 6379 --db-expire-in 400 --part-part-amounts 200 200 200 --part-increment-field page_number --part-field-values part part1 part2 part3 --verbose
+```
+
+Start fold-ui:
+
+```
+ fold-ui --size=1500x800 -- --db-host 127.0.0.1 --db-port 6379
+```
+
 ## Keybindings:
 
 Up/Down: move view up or down a row in unfolded fold
