@@ -327,6 +327,9 @@ class CellSpecContainer(BoxLayout):
         # update structure preview image
         self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters)
 
+    def generate_structure(self):
+        self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters)
+
 class CellSpecItem(BoxLayout):
     def __init__(self, cell_spec, **kwargs):
         self.cell_spec = cell_spec
@@ -381,8 +384,12 @@ class CellSpecItem(BoxLayout):
                 self.cell_spec.cell_layout_meta[widget.meta_option].remove((widget.meta_option_value.text,  widget.meta_option_area))
             except:
                 pass
-        print(self.cell_spec.cell_layout_meta)
-        #print(widget.meta_option, widget.meta_option_value.text, widget.meta_option_area)
+        # wrap in try/except to prevent error before
+        # widget has a parent
+        try:
+            self.parent.generate_structure()
+        except AttributeError:
+            pass
 
     def generate_cell_layout_widgets(self):
         rows =  BoxLayout(orientation="vertical", size_hint_x=1)
@@ -452,6 +459,10 @@ class CellSpecItem(BoxLayout):
     def generate_preview(self):
         preview = cell_preview(self.cell_spec, cells=3)[1]
         self.cells_preview.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
+        try:
+            self.parent.generate_structure()
+        except AttributeError:
+            pass
 
 class CellSpecGenerator(BoxLayout):
     def __init__(self, cell_spec_container, palette_source=None, amount_source=None, **kwargs):
