@@ -1004,7 +1004,7 @@ class AccordionContainer(Accordion):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.resize_size = 600
-        self.folded_fold_width = 44
+        self.folded_fold_width = 20
         self.folded_fold_height = Window.size[1]
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
