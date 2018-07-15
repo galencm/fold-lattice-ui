@@ -26,16 +26,6 @@ pip3 install --editable ./ --user --process-dependency-links
 ma-ui-fold --size=1500x800
 ```
 
-change window size and create/save palette(notice double dash -- separating cli args from kivy args):
-```
-ma-ui-fold --size=1500x800  -- --filter-key source_uid --palette '{"roman": { "border":"black", "fill": [155,155,255,1]}}' --palette-name foo
-```
-
-visually sketch groups (values for field)
-```
-ma-ui-fold --size=1500x800 -- --group-sketch '{"chapter" : {"part1":60,"part2":60}}'
-```
-
 ## Keybindings:
 
 Up/Down: move view up or down a row in unfolded fold
