@@ -1236,6 +1236,14 @@ class FoldedInlayApp(App):
         self.session = {}
         self.restore_session = True
         self.xml_files_to_load = []
+        if kwargs["db_host"] and kwargs["db_port"]:
+            global binary_r
+            global redis_conn
+            db_settings = {"host" :  kwargs["db_host"], "port" : kwargs["db_port"]}
+            binary_r = redis.StrictRedis(**db_settings)
+            redis_conn = redis.StrictRedis(**db_settings, decode_responses=True)
+
+
         super(FoldedInlayApp, self).__init__()
 
     def on_stop(self):
@@ -1482,7 +1490,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--xml-file",  help="xml file to use")
     parser.add_argument("--xml-key",  help="db key containing xml to access")
+    parser.add_argument("--db-host",  help="db host ip, requires use of --db-port")
+    parser.add_argument("--db-port", type=int, help="db port, requires use of --db-host")
     args = parser.parse_args()
+
+    if bool(args.db_host) != bool(args.db_port):
+        parser.error("--db-host and --db-port values are both required")
 
     app = FoldedInlayApp(**vars(args))
     atexit.register(app.save_session)
