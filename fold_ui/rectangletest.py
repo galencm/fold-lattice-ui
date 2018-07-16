@@ -11,6 +11,23 @@ import io
 import uuid
 import math
 
+@functools.lru_cache()
+def calculate_fontsize(text, fontsize, width):
+    try:
+        font = ImageFont.truetype("DejaVuSerif-Bold.ttf", fontsize)
+    except Exception as ex:
+        print(ex)
+        font = None
+
+    while font.getsize(text)[0] > width:
+        fontsize -= 1
+        try:
+            font = ImageFont.truetype("DejaVuSerif-Bold.ttf", fontsize)
+        except Exception as ex:
+            print(ex)
+            font = None
+    return font, fontsize
+
 def vertical_texture(draw, spacing, top, height, width):
     # draw mutable, so no return
     for space in range(0, width, round(width / spacing)):
@@ -304,13 +321,8 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                                     #print("==", k, region)
                                     if field_area == region:
                                         if meta == "overlay":
-                                            #print("overlay")
-                                            try:
-                                                font = ImageFont.truetype("DejaVuSerif-Bold.ttf", 20)
-                                            except Exception as ex:
-                                                print(ex)
-                                                font = None
-                                            text =str(cell[field_name])
+                                            text = str(cell[field_name])
+                                            font, fontsize = calculate_fontsize(text, 20, width)
                                             text_width, text_height = draw.textsize(text, font=font)
                                             text_x_offset = 0
                                             text_y_offset = 0
