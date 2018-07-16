@@ -840,6 +840,20 @@ class StructurePreview(BoxLayout):
         self.generate_structure_preview(parameters=self.parameters)
 
     def generate_structure_preview(self, parameters=None, create_folds=None):
+
+        generate_call = lambda dt, self=self, parameters=parameters, create_folds=create_folds: self.generate_structure_preview_call(parameters=parameters, create_folds=create_folds)
+        schedule = True
+        for event in Clock.get_events():
+            # check if lambda function is in events by matching repr strings
+            if str(generate_call)[:40] in str(event.callback):
+                schedule = False
+        if schedule:
+            print("structure scheduling generate call")
+            Clock.schedule_once(generate_call, 1)
+        else:
+            print("structure generate call already scheduled")
+
+    def generate_structure_preview_call(self, parameters=None, create_folds=None):
         print("generating...", parameters)
         if create_folds is None:
             create_folds = True
@@ -1022,6 +1036,19 @@ class AccordionContainer(Accordion):
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     def create_folds(self):
+            folds_call = lambda dt, self=self: self.create_folds_call()
+            schedule = True
+            for event in Clock.get_events():
+                # check if lambda function is in events by matching repr strings
+                if str(folds_call)[:40] in str(event.callback):
+                    schedule = False
+            if schedule:
+                print("scheduling create folds call")
+                Clock.schedule_once(folds_call, 1)
+            else:
+                print("create folds call already scheduled")
+
+    def create_folds_call(self):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         try:
@@ -1048,7 +1075,26 @@ class AccordionContainer(Accordion):
         except KeyError:
             pass
         try:
-            self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters, create_folds=False)
+            generate_call = lambda dt, self=self: self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters, create_folds=False)
+
+            schedule = True
+            for event in Clock.get_events():
+                # check if lambda function is in events by matching repr strings
+                # will be something like <function StructurePreview.generate_structure_preview...
+                if str(generate_call)[:40] in str(event.callback):
+                    schedule = False
+            if schedule:
+                print("scheduling folds generate call")
+                Clock.schedule_once(generate_call, 1)
+            else:
+                print("folds generate call already scheduled")
+            # if not str(generate_call)[:40] in [str(event.callback) for event in Clock.get_events()]:
+            #     print("scheduling folds call.........................", generate_call)
+            #     Clock.schedule_once(generate_call, 10)
+            # else:
+            #     print("folds generate call already scheduled")
+
+            #self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters, create_folds=False)
         except KeyError:
             pass
     def _keyboard_closed(self):
