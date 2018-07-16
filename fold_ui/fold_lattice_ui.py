@@ -17,6 +17,7 @@ import inspect
 import sys
 import argparse
 import functools
+import fnmatch
 import uuid
 import colour
 from PIL import Image as PImage
@@ -1314,10 +1315,20 @@ class FoldedInlayApp(App):
         App.get_running_app().stop()
 
     def handle_db_events(self, message):
-        print(message)
-        if self.session['sources'].prefix in message["channel"]:
-            pass
-        Clock.schedule_once(lambda dt:  self.session['sources'].get_sources())
+        # print(message)
+        #if self.session['sources'].prefix.replace("*","") in message["channel"]:
+        if fnmatch.fnmatch(message["channel"].replace("__keyspace@0__:",""), self.session['sources'].prefix):
+            get_sources = lambda dt:  self.session['sources'].get_sources()
+            schedule = True
+            for event in Clock.get_events():
+                # check if lambda function is in events by matching repr strings
+                if str(get_sources)[:40] in str(event.callback):
+                    schedule = False
+            if schedule:
+                print("scheduling get sources call")
+                Clock.schedule_once(get_sources, 1)
+            else:
+                print("get sources call already scheduled")
 
     def build(self):
 
