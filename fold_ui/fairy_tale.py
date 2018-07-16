@@ -10,6 +10,7 @@ import time
 import uuid
 import io
 import random
+import sys
 from PIL import Image as PILImage, ImageDraw, ImageColor, ImageFont
 from ma_cli import data_models
 
@@ -34,7 +35,10 @@ def generate_things(**kwargs):
         binary_r = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"])
         redis_conn = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"], decode_responses=True)
 
-    field_name, *field_values = kwargs["part_field_values"]
+    try:
+        field_name, *field_values = kwargs["part_field_values"]
+    except TypeError:
+        sys.exit()
 
     things = []
     kwargs["part_part_amounts"] = [int(s) for s in kwargs["part_part_amounts"]]
