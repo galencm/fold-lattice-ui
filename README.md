@@ -34,10 +34,11 @@ It is available on the commandline as `fold-ui-fairytale`
 
 A simple example shows the creation of 600 items on a specified redis server (by default both fold-ui and fairytale will attempt to connect to redis via service discovery).
 
-Start a redis server:
+Create a config file to enable keyspace events and start a redis server:
 
 ```
-redis-server --port 6379
+echo "notify-keyspace-events KEA" >> redis.conf
+redis-server redis.conf --port 6379
 ```
 
 Run fairytale:
