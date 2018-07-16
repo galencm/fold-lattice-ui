@@ -53,6 +53,17 @@ Start fold-ui:
  fold-ui --size=1500x800 -- --db-host 127.0.0.1 --db-port 6379
 ```
 
+A slightly more involved example:
+
+* clear all previous keys matching `glworb:*` pattern
+* generate 600 items with 300 disordered (out of sequence)
+* items will expire in 1000 seconds
+* enter items at an interval of 5 seconds
+
+```
+fold-ui-fairytale --db-host 127.0.0.1 --db-port 6379 --db-expire-in 1000 --part-part-amounts 200 200 200 --part-increment-field page_number --part-field-values part part1 part2 part3 --verbose --structure-stagger-delay 5 --structure-disorder 300 --db-del-pattern glworb:*
+```
+
 ## Keybindings:
 
 Up/Down: move view up or down a row in unfolded fold
