@@ -830,8 +830,7 @@ class StructurePreview(BoxLayout):
         # for now just filter out
         if not isinstance(value, BooleanProperty):
             self.parameters[widget.text] = value
-            if widget.text == "sources":
-                self.generate_structure_preview(parameters=self.parameters)
+            self.generate_structure_preview(parameters=self.parameters)
 
     def set_parameter(self, parameter, value):
         try:
