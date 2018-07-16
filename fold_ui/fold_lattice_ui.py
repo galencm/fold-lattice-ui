@@ -357,9 +357,10 @@ class CellSpecItem(BoxLayout):
         # important for restoring session from xml
         for k, v in self.cell_spec.cell_layout_meta.items():
             if v:
-                for w in self.meta_widgets:
-                    if k == w.meta_option:
-                        w.active = BooleanProperty(True)
+                for _, area in v:
+                    for w in self.meta_widgets:
+                        if k == w.meta_option and w.meta_option_area == area:
+                            w.active = BooleanProperty(True)
 
     def set_meta(self, widget, value):
         if value:
@@ -394,6 +395,7 @@ class CellSpecItem(BoxLayout):
     def generate_cell_layout_widgets(self):
         rows =  BoxLayout(orientation="vertical", size_hint_x=1)
         similar={}
+        meta_widgets = []
         for area in ["top", "bottom", "left", "right", "center"]:
             row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None, size_hint_x=1)
             row.add_widget(Label(text=area))
@@ -417,7 +419,6 @@ class CellSpecItem(BoxLayout):
             row.add_widget(margin)
 
             # meta options
-            meta_widgets = []
             for meta_option in ["primary", "sortby", "continuous", "overlay"]:
                 if not meta_option in similar:
                     similar[meta_option] = []
