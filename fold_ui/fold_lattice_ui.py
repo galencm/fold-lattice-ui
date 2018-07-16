@@ -620,12 +620,24 @@ class SourcesPreview(BoxLayout):
         self.sources = []
         for key in self.source_keys:
             self.sources.append(redis_conn.hgetall(key))
+        self.preprocess_sources()
         self.sources_unfiltered.text = "\n".join(self.source_keys)
         self.sample_sources()
         try:
             self.app.session["folds"].create_folds()
         except KeyError:
             pass
+
+    def preprocess_sources(self):
+        # all values come from redis as strings
+        # try to convert values to int
+        # add as checkbox/dropdown somewhere?
+        for source in self.sources:
+            for k, v in source.items():
+                try:
+                    source[k] = int(v)
+                except:
+                    pass
 
     def sample_sources(self):
         sampled_overview = {}
