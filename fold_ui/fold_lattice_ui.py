@@ -1026,6 +1026,12 @@ class AccordionItemThing(AccordionItem):
         super(AccordionItemThing, self).__init__(**kwargs)
         self.thing = None
 
+    def on_touch_up(self, touch):
+        if self.collide_point(*touch.pos):
+            if self.collapse is False:
+                self.parent.open_column_position = self.column_index
+        return super(AccordionItemThing, self).on_touch_up(touch)
+
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
@@ -1033,6 +1039,7 @@ class AccordionContainer(Accordion):
         self.resize_size = 600
         self.folded_fold_width = 20
         self.folded_fold_height = Window.size[1]
+        self.open_column_position = 0
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     def create_folds(self):
@@ -1051,27 +1058,34 @@ class AccordionContainer(Accordion):
     def create_folds_call(self):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
+        # this sets the fold width to match column images correctly
+        # ie a square cell will be shown as square on accordion fold
+        # however in situations with fewer cells per column, there
+        # will be no overlap and opening a fold will have no effect
+        # since there is no spare space to expand
+        # try:
+        #     self.min_space = self.app.session['structure'].parameters['cell_width']
+        # except KeyError:
+        #     pass
         try:
+            # should be possible to change widget images without
+            # clearing, the clear / create approach causes a noticeable
+            # flicker as widgets are removed and re-added 
+            #
+            # for now store which fold/column is open
+            # and reopen after creating widgets
             self.clear_widgets()
+            column_number = 0
             for filename, filebytes, sources in self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters):
-                print(filename, filebytes)
-                fold = AccordionItemThing(background_normal=filename, background_selected=filename)
-                fold.thing = ScatterTextWidget()
-                fold.add_widget(fold.thing)
-                resize_to = 600
-                # for source in sources:
-                #     try:
-                #         item = self.app.session['sources'].item_class(source[self.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
-                #         # image_data = bimg_resized(source["binary_key"], resize_to)
-                #         # item = ClickableImage(size_hint_y=None,
-                #         #                      size_hint_x=None,
-                #         #                      allow_stretch=True,
-                #         #                      keep_ratio=True)
-                #         # item.texture = CoreImage(image_data, ext="jpg").texture
-                #         fold.thing.image_grid.add_widget(item)
-                #     except:
-                #         pass
-                self.add_widget(fold)
+                    fold = AccordionItemThing(background_normal=filename, background_selected=filename)
+                    fold.thing = ScatterTextWidget()
+                    fold.add_widget(fold.thing)
+                    fold.column_index = column_number
+                    resize_to = 600
+                    self.add_widget(fold)
+                    if column_number == self.open_column_position:
+                        fold.collapse = False
+                    column_number += 1
         except KeyError:
             pass
         try:
