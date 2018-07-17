@@ -1029,10 +1029,25 @@ class AccordionItemThing(AccordionItem):
         super(AccordionItemThing, self).__init__(**kwargs)
         self.thing = None
 
+    def render_contents(self):
+        # image_grid position and zoom lost during parent remove / re-add of folds
+        for source in self.sources:
+            try:
+                if not source[self.parent.app.session['sources'].item_key] in [s.source for s in self.thing.image_grid.children]:
+                    try:
+                        item = self.parent.app.session['sources'].item_class(source[self.parent.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
+                        print(item)
+                        self.thing.image_grid.add_widget(item)
+                    except Exception as ex:
+                        pass
+            except Exception as ex:
+                pass
+
     def on_touch_up(self, touch):
         if self.collide_point(*touch.pos):
             if self.collapse is False:
                 self.parent.open_column_position = self.column_index
+                self.render_contents()
         return super(AccordionItemThing, self).on_touch_up(touch)
 
 class AccordionContainer(Accordion):
@@ -1077,17 +1092,20 @@ class AccordionContainer(Accordion):
             #
             # for now store which fold/column is open
             # and reopen after creating widgets
+            # collapse seems to only be settable after adding to parent
+            # rather than adding in an uncollapsed state
             self.clear_widgets()
             column_number = 0
             for filename, filebytes, sources in self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters):
                     fold = AccordionItemThing(background_normal=filename, background_selected=filename)
+                    fold.sources = sources
                     fold.thing = ScatterTextWidget()
                     fold.add_widget(fold.thing)
                     fold.column_index = column_number
-                    resize_to = 600
                     self.add_widget(fold)
                     if column_number == self.open_column_position:
                         fold.collapse = False
+                        fold.render_contents()
                     column_number += 1
         except KeyError:
             pass
