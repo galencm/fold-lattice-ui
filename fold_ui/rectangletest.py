@@ -10,6 +10,7 @@ import operator
 import io
 import uuid
 import math
+from collections import OrderedDict
 
 @functools.lru_cache()
 def calculate_fontsize(text, fontsize, width):
@@ -35,8 +36,6 @@ def vertical_texture(draw, spacing, top, height, width):
 
 def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, ragged=False, ragged_sub=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
 
-    # sparse_expected
-    # sparse_found until, padded list initialized as expected size
     if cell_width is None:
         cell_width = 15
 
@@ -52,6 +51,11 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
     overall_structure = {}
 
     ordering = {p.name : p.order_value for p in palette}
+
+    expected = {}
+    for p in palette:
+        for possiblity in p.possiblities:
+            expected[possiblity.name] = possiblity.rough_amount
 
     for s in spec:
         specs[s.primary_layout_key] = s
@@ -72,7 +76,20 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
 
     for s in spec:
         try:
-            for key, area in s.cell_layout_meta["sortby"]:
+            # get subsort_key for sparse_expected
+            # a integer/floating value is needed to allocate
+            # sparse positions using rough amounts
+            # assumes that primary_layout_key field contains string values
+            # rather than integers
+            if sparse_expected:
+                subsort_key = None
+                for key, area in sorted(s.cell_layout_meta["sortby"]):
+                    if key != s.primary_layout_key:
+                        subsort_key = key
+                if subsort_key is None:
+                    subsort_key = s.primary_layout_key
+
+            for key, area in sorted(s.cell_layout_meta["sortby"]):
                 try:
                     overall_structure[s.primary_layout_key].sort(key=operator.itemgetter(key))
 
@@ -103,6 +120,43 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
                                     overall_structure[s.primary_layout_key].append(None)
                                 except:
                                     pass
+
+                    if sparse_expected:
+                        # only run with s.primary_layout_key
+                        # to get correct initial ordering
+                        if key == s.primary_layout_key:
+                            sublists = OrderedDict()
+                            for item in overall_structure[s.primary_layout_key]:
+                                if not item[key] in sublists:
+                                    sublists[item[key]] = []
+                                sublists[item[key]].append(item)
+
+                            sparse = []
+                            for k, v in sublists.items():
+                                sparse_expected = []
+                                if k in expected:
+                                    sparse_expected = [None] * expected[k]
+                                    for item in v:
+                                        try:
+                                            if isinstance(item[subsort_key], int):
+                                                try:
+                                                    if sparse_expected[item[subsort_key]] is None:
+                                                        sparse_expected[item[subsort_key]] = item
+                                                    else:
+                                                        sparse_expected.insert(item[subsort_key], item)
+                                                except IndexError:
+                                                    sparse_expected.insert(item[subsort_key], item)
+                                            else:
+                                                sparse_expected.remove(None)
+                                                sparse_expected.insert(0, item)
+                                        except Exception as ex:
+                                            sparse_expected.remove(None)
+                                            sparse_expected.insert(0, item)
+                                else:
+                                    sparse_expected = v
+                                sparse.extend(sparse_expected)
+
+                            overall_structure[s.primary_layout_key] = sparse
 
                     if sparse_found_from_zero or sparse_found:
                         try:
