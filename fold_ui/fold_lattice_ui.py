@@ -1040,7 +1040,7 @@ class AccordionContainer(Accordion):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.resize_size = 600
-        self.folded_fold_width = 20
+        self.folded_fold_width = 40
         self.folded_fold_height = Window.size[1]
         self.open_column_position = 0
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
@@ -1114,6 +1114,22 @@ class AccordionContainer(Accordion):
             #self.app.session['structure'].generate_structure_preview(parameters=self.app.session['structure'].parameters, create_folds=False)
         except KeyError:
             pass
+
+        # check if folds need to be resized
+        # more folds will need narrower min_space
+        try:
+            fold_width = int(Window.size[0] / len(self.children))
+            #accordion does not like exact value of children width and total width
+            if fold_width * len(self.children) == Window.size[0]:
+                fold_width -= 1
+            if fold_width < self.min_space:
+                print(fold_width,  len(self.children), Window.size[0])
+                self.min_space = fold_width
+                self.folded_fold_width = fold_width
+                print("resizing folds to {}".format(self.folded_fold_width))
+        except ZeroDivisionError:
+            pass
+
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
         self._keyboard = None
