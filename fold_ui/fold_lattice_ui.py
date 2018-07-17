@@ -722,6 +722,7 @@ class ClickableImage(Image):
 
 class AnnotatedImageViewViewer(BoxLayout):
     def __init__(self, source, **kwargs):
+        self.source = source
         super(AnnotatedImageViewViewer, self).__init__(**kwargs)
         try:
             resize_to = 600
@@ -740,6 +741,7 @@ class AnnotatedImageViewViewer(BoxLayout):
 
 class ImageViewViewer(ClickableImage):
     def __init__(self, source, **kwargs):
+        self.source = source
         # self.size_hint_y=None
         # self.size_hint_x=None
         # self.allow_stretch=True
@@ -756,6 +758,7 @@ class ImageViewViewer(ClickableImage):
 
 class TextViewViewer(BoxLayout):
     def __init__(self, source, **kwargs):
+        self.source = source
         super(TextViewViewer, self).__init__(**kwargs)
         self.add_widget(Label(text=str(source)))
 
