@@ -33,7 +33,7 @@ def vertical_texture(draw, spacing, top, height, width):
     for space in range(0, width, round(width / spacing)):
         draw.line((space, top, space, top + height), width=2, fill=(255, 255, 255, 128))
 
-def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
+def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, ragged=False, ragged_sub=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
 
     # sparse_expected
     # sparse_found until, padded list initialized as expected size
@@ -75,6 +75,35 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
             for key, area in s.cell_layout_meta["sortby"]:
                 try:
                     overall_structure[s.primary_layout_key].sort(key=operator.itemgetter(key))
+
+                    if ragged_sub:
+                        if key == s.primary_layout_key:
+                            prev = None
+                            items = 0
+                            to_insert = []
+                            for i, item in enumerate(overall_structure[s.primary_layout_key]):
+                                if item:
+                                    if prev != item[key] and prev != None:
+                                        to_pad =  column_slots - (items % column_slots)
+                                        items = -1
+                                        if to_pad == column_slots:
+                                            to_pad = 0
+                                        for _ in range(to_pad):
+                                            try:
+                                                overall_structure[s.primary_layout_key].insert(i, None)
+                                            except:
+                                                pass
+                                    items += 1
+                                    prev = item[key]
+                            to_pad = column_slots - (items % column_slots)
+                            if to_pad == column_slots:
+                                to_pad = 0
+                            for _ in range(to_pad):
+                                try:
+                                    overall_structure[s.primary_layout_key].append(None)
+                                except:
+                                    pass
+
                     if sparse_found_from_zero or sparse_found:
                         try:
                             print(sparse_found, sparse_found_from_zero)
