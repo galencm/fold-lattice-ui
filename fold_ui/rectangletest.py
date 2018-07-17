@@ -139,6 +139,12 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
     # print(ordering, overall_structure.keys())
     ordering = sorted(ordering.items(), key=lambda kv: kv[1])
 
+    if ragged:
+        for k, v in overall_structure.items():
+            to_pad = len(v) % column_slots
+            for _ in range(to_pad):
+                overall_structure[k].extend([None])
+
     for k, _ in ordering:
         try:
             print("adding {}".format(k))
