@@ -37,9 +37,15 @@ def generate_things(**kwargs):
 
     if kwargs["db_del_pattern"]:
         for matched_key in redis_conn.scan_iter(match=kwargs["db_del_pattern"]):
-            redis_conn.delete(matched_key)
-            if kwargs["verbose"]:
-                print("deleted: {}".format(matched_key))
+            if kwargs["db_del_field"]:
+                if kwargs["db_del_field"] in redis_conn.hgetall(matched_key).keys():
+                    redis_conn.delete(matched_key)
+                    if kwargs["verbose"]:
+                        print("deleted: {}".format(matched_key))
+            else:
+                redis_conn.delete(matched_key)
+                if kwargs["verbose"]:
+                    print("deleted: {}".format(matched_key))
 
     try:
         field_name, *field_values = kwargs["part_field_values"]
@@ -156,6 +162,7 @@ def main():
     parser.add_argument("--db-prefix",  default="glworb:", help="db key prefix, will be follwed by uuid")
     parser.add_argument("--db-expire-in", type=int, default=None, help="db key expiration time in seconds")
     parser.add_argument("--db-del-pattern", help="delete a pattern, will run before any other commands")
+    parser.add_argument("--db-del-field", help="from --db-del-pattern pattern matches, only delete if specified field exists")
 
     parser.add_argument("--part-part-amounts", nargs="+", help="")
     parser.add_argument("--part-increment-field", help="field to contain incrementing integers")
