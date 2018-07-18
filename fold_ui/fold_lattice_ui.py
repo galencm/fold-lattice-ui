@@ -1030,16 +1030,25 @@ class AccordionItemThing(AccordionItem):
         self.thing = None
 
     def render_contents(self):
-        # image_grid position and zoom lost during parent remove / re-add of folds
-        for source in self.sources:
+        # sources may have changed, remove widgets if widget.source is no longer in sources
+        # remember that self.sources may contain spaceholding Nones
+        for item in self.thing.image_grid.children:
             try:
-                if not source[self.parent.app.session['sources'].item_key] in [s.source for s in self.thing.image_grid.children]:
-                    try:
-                        item = self.parent.app.session['sources'].item_class(source[self.parent.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
-                        print(item)
-                        self.thing.image_grid.add_widget(item)
-                    except Exception as ex:
-                        pass
+                if not item.source in [source[self.parent.app.session['sources'].item_key] for source in self.sources if source and self.parent.app.session['sources'].item_key in source]:
+                    self.thing.image_grid.remove_widget(item)
+            except Exception as ex:
+                pass
+
+        for source_index, source in enumerate(reversed(self.sources)):
+            try:
+                if source is not None:
+                    if not source[self.parent.app.session['sources'].item_key] in [s.source for s in self.thing.image_grid.children]:
+                        try:
+                            item = self.parent.app.session['sources'].item_class(source[self.parent.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
+                            # add widget in correct position using index parameter
+                            self.thing.image_grid.add_widget(item, index=source_index)
+                        except Exception as ex:
+                            pass
             except Exception as ex:
                 pass
 
