@@ -125,6 +125,7 @@ def generate_things(**kwargs):
         redis_conn.hmset(db_key, content)
         if kwargs["verbose"]:
             print(db_key)
+            print(content)
         if kwargs["db_expire_in"] > 0:
             redis_conn.expire(db_key, kwargs["db_expire_in"])
 
