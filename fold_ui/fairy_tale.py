@@ -54,6 +54,12 @@ def generate_things(**kwargs):
 
     things = []
     kwargs["part_part_amounts"] = [int(s) for s in kwargs["part_part_amounts"]]
+    if kwargs["part_part_amounts_start"] is None:
+        kwargs["part_part_amounts_start"] = []
+    kwargs["part_part_amounts_start"] = [int(s) for s in kwargs["part_part_amounts_start"]]
+    kwargs["part_part_amounts_start"] += [0] * (len(kwargs["part_part_amounts"]) - len(kwargs["part_part_amounts_start"]))
+
+
     to_disorder = kwargs["structure_disorder"]
 
     missed = 0
@@ -75,7 +81,7 @@ def generate_things(**kwargs):
                                random.randint(0, amount)))
 
     part_num = 0
-    for part, amount in zip(field_values, kwargs["part_part_amounts"]):
+    for part, amount, amount_start in zip(field_values, kwargs["part_part_amounts"], kwargs["part_part_amounts_start"]):
         print(part, part_num)
         duplicates = 1
         for sequence_number in range(amount):
@@ -91,7 +97,7 @@ def generate_things(**kwargs):
                     thing[field_name] = part
                     # add an incrementing field
                     if kwargs["part_increment_field"]:
-                         thing[kwargs["part_increment_field"]] = sequence_number
+                         thing[kwargs["part_increment_field"]] = sequence_number + amount_start
                     # add a binary field / key
                     if kwargs["part_binary_field"]:
                         db_binary_key =  kwargs["part_binary_prefix"] + str(uuid.uuid4())
@@ -166,6 +172,7 @@ def main():
     parser.add_argument("--db-del-field", help="from --db-del-pattern pattern matches, only delete if specified field exists")
 
     parser.add_argument("--part-part-amounts", nargs="+", help="")
+    parser.add_argument("--part-part-amounts-start", nargs="+", help="")
     parser.add_argument("--part-increment-field", help="field to contain incrementing integers")
     parser.add_argument("--part-binary-field", default="binary_key", help="binary field name, will contain binary key")
     parser.add_argument("--part-binary-prefix", default="binary:", help="prefix for binary key, will be followed by uuid")
