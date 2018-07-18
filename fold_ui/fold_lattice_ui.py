@@ -1086,27 +1086,36 @@ class AccordionContainer(Accordion):
         # except KeyError:
         #     pass
         try:
-            # should be possible to change widget images without
-            # clearing, the clear / create approach causes a noticeable
-            # flicker as widgets are removed and re-added 
-            #
-            # for now store which fold/column is open
-            # and reopen after creating widgets
-            # collapse seems to only be settable after adding to parent
-            # rather than adding in an uncollapsed state
-            self.clear_widgets()
+            # folds still use filenames from disk by
+            # setting background_normal and background_selected
+            # useful to set image directly using available filebytes
+            # and not need to write images to disk
             column_number = 0
-            for filename, filebytes, sources in self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters):
-                    fold = AccordionItemThing(background_normal=filename, background_selected=filename)
-                    fold.sources = sources
-                    fold.thing = ScatterTextWidget()
-                    fold.add_widget(fold.thing)
+            try:
+                filenames, filebytes, sources = zip(*self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters))
+                # remove or add folds to match filenames/sources
+                if len(self.children) > len(sources):
+                    for child in self.children[len(self.children) - len(sources):]:
+                        self.remove_widget(child)
+                elif len(self.children) < len(sources):
+                    for _ in range(len(sources) - len(self.children)):
+                        fold = AccordionItemThing()
+                        fold.thing = ScatterTextWidget()
+                        fold.add_widget(fold.thing)
+                        self.add_widget(fold)
+
+                for fold, filename, source in zip(reversed(self.children), filenames, sources):
+                    fold.sources = source
                     fold.column_index = column_number
-                    self.add_widget(fold)
-                    if column_number == self.open_column_position:
-                        fold.collapse = False
+                    fold.background_normal = filename
+                    fold.background_selected = filename
+                    if fold.collapse is False:
                         fold.render_contents()
                     column_number += 1
+            except ValueError:
+                # no columns
+                self.clear_widgets()
+
         except KeyError:
             pass
         try:
