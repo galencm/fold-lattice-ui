@@ -80,6 +80,7 @@ def generate_things(**kwargs):
                 to_duplicate.append((random.randint(0, len(field_values) - 1),
                                random.randint(0, amount)))
 
+    expire_interval = 0
     part_num = 0
     for part, amount, amount_start in zip(field_values, kwargs["part_part_amounts"], kwargs["part_part_amounts_start"]):
         print(part, part_num)
@@ -105,7 +106,8 @@ def generate_things(**kwargs):
                         binary_bytes = generate_image(sequence_number, kwargs["binary_width"], kwargs["binary_height"])
                         binary_r.set(db_binary_key, binary_bytes)
                         if kwargs["db_expire_in"] > 0:
-                            redis_conn.expire(db_binary_key, kwargs["db_expire_in"])
+                            redis_conn.expire(db_binary_key, kwargs["db_expire_in"] + expire_interval)
+                            expire_interval += kwargs["db_expire_interval"]
 
                         if kwargs["verbose"]:
                             print(db_binary_key)
