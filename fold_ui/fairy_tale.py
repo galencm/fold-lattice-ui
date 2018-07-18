@@ -126,6 +126,8 @@ def generate_things(**kwargs):
         to_disorder -= 1
         disordered += 1
 
+    expire_interval = 0
+
     for content in things:
         db_key = kwargs["db_prefix"] + str(uuid.uuid4())
         redis_conn.hmset(db_key, content)
@@ -133,7 +135,8 @@ def generate_things(**kwargs):
             print(db_key)
             print(content)
         if kwargs["db_expire_in"] > 0:
-            redis_conn.expire(db_key, kwargs["db_expire_in"])
+            redis_conn.expire(db_key, kwargs["db_expire_in"] + expire_interval)
+            expire_interval += kwargs["db_expire_interval"]
 
         time.sleep(kwargs["structure_stagger_delay"])
 
@@ -170,6 +173,7 @@ def main():
     parser.add_argument("--db-expire-in", type=int, default=None, help="db key expiration time in seconds")
     parser.add_argument("--db-del-pattern", help="delete a pattern, will run before any other commands")
     parser.add_argument("--db-del-field", help="from --db-del-pattern pattern matches, only delete if specified field exists")
+    parser.add_argument("--db-expire-interval", type=int, default=0, help="db key expiration interval")
 
     parser.add_argument("--part-part-amounts", nargs="+", help="")
     parser.add_argument("--part-part-amounts-start", nargs="+", help="")
