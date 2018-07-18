@@ -171,7 +171,7 @@ def main():
     parser.add_argument("--part-binary-prefix", default="binary:", help="prefix for binary key, will be followed by uuid")
     parser.add_argument("--part-field-values", nargs="+", help="head is used as field name, tail for possible values")
 
-    parser.add_argument("--structure-stagger-delay", type=int, default=0, help="")
+    parser.add_argument("--structure-stagger-delay", type=float, default=0, help="")
     parser.add_argument("--structure-disorder", type=int, default=0, help="")
     parser.add_argument("--structure-duplicate", type=int, default=0, help="")
     parser.add_argument("--structure-missing", type=int, default=0, help="")
