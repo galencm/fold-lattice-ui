@@ -34,7 +34,7 @@ def vertical_texture(draw, spacing, top, height, width):
     for space in range(0, width, round(width / spacing)):
         draw.line((space, top, space, top + height), width=2, fill=(255, 255, 255, 128))
 
-def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, ragged=False, ragged_sub=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
+def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, start_offset=False, ragged=False, ragged_sub=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
 
     if cell_width is None:
         cell_width = 15
@@ -56,6 +56,8 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
     for p in palette:
         for possiblity in p.possiblities:
             expected[possiblity.name] = possiblity.rough_amount
+            #possiblity.rough_start
+            #possiblity.rough_end
 
     for s in spec:
         specs[s.primary_layout_key] = s
@@ -132,20 +134,23 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
                                 sublists[item[key]].append(item)
 
                             sparse = []
+                            rough_start_offset = 0
                             for k, v in sublists.items():
                                 sparse_expected = []
                                 if k in expected:
+                                    if start_offset is True:
+                                        rough_start_offset += expected[k] + 1
                                     sparse_expected = [None] * expected[k]
                                     for item in v:
                                         try:
                                             if isinstance(item[subsort_key], int):
                                                 try:
-                                                    if sparse_expected[item[subsort_key]] is None:
-                                                        sparse_expected[item[subsort_key]] = item
+                                                    if sparse_expected[item[subsort_key] - rough_start_offset] is None:
+                                                        sparse_expected[item[subsort_key] - rough_start_offset] = item
                                                     else:
-                                                        sparse_expected.insert(item[subsort_key], item)
+                                                        sparse_expected.insert(item[subsort_key] - rough_start_offset, item)
                                                 except IndexError:
-                                                    sparse_expected.insert(item[subsort_key], item)
+                                                    sparse_expected.insert(item[subsort_key] - rough_start_offset, item)
                                             else:
                                                 sparse_expected.remove(None)
                                                 sparse_expected.insert(0, item)

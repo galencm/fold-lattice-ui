@@ -796,7 +796,7 @@ class StructurePreview(BoxLayout):
             bottom.add_widget(parameter_widget)
             self.parameter_widgets.append(parameter_widget)
 
-        for check_parameter in ["sources", "sparse_expected", "sparse_found", "sparse_found_from_zero", "ragged", "ragged_sub"]:
+        for check_parameter in ["sources", "sparse_expected", "sparse_found", "sparse_found_from_zero", "ragged", "ragged_sub", "start_offset"]:
             check_parameter_widget = CheckBox()
             check_parameter_widget.text = check_parameter
             check_parameter_widget.bind(active=self.set_check_parameter)
