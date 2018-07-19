@@ -310,7 +310,7 @@ class CellSpecContainer(BoxLayout):
         self.add_widget(cell_spec)
         self.parent.scroll_to(cell_spec)
 
-    def remove_palette_thing(self, cell_spec_id):
+    def remove_cell_spec(self, cell_spec_id):
         for cell_spec in self.children:
             try:
                 if cell_spec == cell_spec_id:
@@ -338,12 +338,10 @@ class CellSpecItem(BoxLayout):
         self.meta_widgets = []
         super(CellSpecItem, self).__init__(**kwargs)
         preview_box = BoxLayout(orientation="vertical", size_hint_x=None)
-        spec_name = DropDownInput(height=30, size_hint_y=None, size_hint_x=None)
-        spec_name.bind(on_text_validate=lambda widget: self.set_name(widget.text))
-
-        preview_box.add_widget(spec_name)
         preview_box.add_widget(self.cells_preview)
-        preview_box.add_widget(Button(text="del", height=30, size_hint_y=None, size_hint_x=None))
+        cell_delete = Button(text="del", height=30, size_hint_y=1, size_hint_x=None)
+        cell_delete.bind(on_press=lambda widget: self.parent.remove_cell_spec(self))
+        self.add_widget(cell_delete)
         # subsort here?
         self.add_widget(preview_box)
         self.generate_cell_layout_widgets()
