@@ -494,8 +494,10 @@ class SourcesPreview(BoxLayout):
         self.sources_unfiltered = TextInput(multiline=True)
         self.sources = []
         self.source_fields = set()
-        self.samples_per_key = 6
+        self.samples_per_key = 5
         self.app = app
+        self.samplings = 3
+        self.remaining_samplings = self.samplings
         super(SourcesPreview, self).__init__(**kwargs)
         self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewer" in c[0]]
         self.item_preview = BoxLayout(orientation="vertical")
@@ -596,6 +598,7 @@ class SourcesPreview(BoxLayout):
 
         # clear source fields, if any from previous db
         self.source_fields = set()
+        self.remaining_samplings = self.samplings
         self.get_sources()
 
     def generate_preview(self):
@@ -620,9 +623,11 @@ class SourcesPreview(BoxLayout):
         self.sources = []
         for key in self.source_keys:
             self.sources.append(redis_conn.hgetall(key))
+
         self.preprocess_sources()
         self.sources_unfiltered.text = "\n".join(self.source_keys)
-        self.sample_sources()
+        if self.remaining_samplings > 0:
+            self.sample_sources()
         try:
             self.app.session["folds"].create_folds()
         except KeyError:
@@ -681,6 +686,9 @@ class SourcesPreview(BoxLayout):
                         sample_row.add_widget(Label(text="X"))
                 self.sources_overview.add_widget(sample_row)
                 self.sources_overview.height += sample_row.height
+
+        if self.remaining_samplings > 0:
+            self.remaining_samplings -= 1
 
 class ClickableImage(Image):
     def __init__(self, **kwargs):
