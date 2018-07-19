@@ -648,6 +648,11 @@ class SourcesPreview(BoxLayout):
         for source in self.sources:
             self.source_fields.update(list(source.keys()))
         self.key_selection.preload = sorted(list(self.source_fields))
+        # try to update dropdowns
+        try:
+            self.app.session["palette"].update_names()
+        except KeyError:
+            pass
 
         for key in self.source_fields:
             sampled_overview[key] = []
@@ -940,6 +945,13 @@ class PaletteThingContainer(BoxLayout):
             except AttributeError as ex:
                 pass
 
+    def update_names(self):
+        for palette_thing in self.children:
+            try:
+                palette_thing.set_palette_thing_name.preload = list(self.app.session["sources"].source_fields)
+            except AttributeError as ex:
+                pass
+
 class PaletteThingItem(BoxLayout):
     def __init__(self, palette_thing, **kwargs):
         self.palette_thing = palette_thing
@@ -964,9 +976,10 @@ class PaletteThingItem(BoxLayout):
         color_button.background_color = (*self.palette_thing.color.rgb, 1)
         row.add_widget(color_button)
 
-        set_name = TextInput(text=self.palette_thing.name, multiline=False)
-        set_name.bind(on_text_validate=lambda widget: self.set_name(widget.text))
-        row.add_widget(set_name)
+        set_palette_thing_name = DropDownInput(text=self.palette_thing.name)
+        set_palette_thing_name.bind(on_text_validate=lambda widget: self.set_name(widget.text))
+        self.set_palette_thing_name = set_palette_thing_name
+        row.add_widget(set_palette_thing_name)
         add_possibility = DropDownInput()
         add_possibility.bind(on_text_validate=lambda widget: self.add_possibility(widget.text))
         row.add_widget(add_possibility)
