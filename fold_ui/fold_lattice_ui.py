@@ -583,7 +583,9 @@ class SourcesPreview(BoxLayout):
             redis_conn = redis.StrictRedis(**db_settings, decode_responses=True)
 
         if self.keyspace_widget.active and widget == self.keyspace_widget:
-            self.db_event_subscription.thread = self.db_event_subscription.run_in_thread(sleep_time=0.001)
+            self.app.db_event_subscription = redis_conn.pubsub()
+            self.app.db_event_subscription.psubscribe(**{'__keyspace@0__:*': self.app.handle_db_events})
+            self.app.db_event_subscription.thread = self.app.db_event_subscription.run_in_thread(sleep_time=0.001)
         elif not self.keyspace_widget.active and widget == self.keyspace_widget:
             self.app.db_event_subscription.thread.stop()
 
