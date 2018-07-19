@@ -399,7 +399,7 @@ class CellSpecItem(BoxLayout):
         for area in ["top", "bottom", "left", "right", "center"]:
             row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None, size_hint_x=1)
             row.add_widget(Label(text=area))
-            things = DropDownInput()
+            things = TextInput(multiline=False)
             try:
                 if self.cell_spec.cell_layout_map[area]:
                     things.text = str(self.cell_spec.cell_layout_map[area])
