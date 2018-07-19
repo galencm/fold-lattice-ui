@@ -56,6 +56,7 @@ from kivy.clock import Clock
 from ma_cli import data_models
 #sequence_status_img for thumbnails
 from fold_ui.rectangletest import sequence_status, cell_preview, structure_preview
+import fold_ui.bindings as bindings
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -784,6 +785,36 @@ class TextViewViewer(BoxLayout):
         super(TextViewViewer, self).__init__(**kwargs)
         self.add_widget(Label(text=str(source)))
 
+class BindingItem(BoxLayout):
+    def __init__(self, domain, action, action_keybindings, actions, **kwargs):
+        # self.rows = 1
+        # self.cols = None
+        self.orientation = "horizontal"
+        self.keys = action_keybindings[0]
+        self.modifiers = action_keybindings[1]
+        self.domain = domain
+        self.action = action
+        self.actions = actions
+        self.action_label = Label(text=str(self.action), height=40)
+        self.keys_input = TextInput(text=str(",".join(self.keys)), multiline=False, height=40, size_hint_x=0.2)
+        self.keys_input.bind(on_text_validate = lambda widget: self.set_binding())
+        self.modifiers_input = TextInput(text=str(",".join(self.modifiers)), multiline=False, height=40, size_hint_x=0.2)
+        self.modifiers_input.bind(on_text_validate = lambda widget: self.set_binding())
+        super(BindingItem, self).__init__()
+        self.add_widget(self.action_label)
+        self.add_widget(self.keys_input)
+        self.add_widget(self.modifiers_input)
+
+    def set_binding(self):
+        self.keys = self.parse_input(self.keys_input.text)
+        self.modifiers= self.parse_input(self.modifiers_input.text)
+        self.actions[self.domain][self.action] = [self.keys, self.modifiers]
+
+    def parse_input(self, text):
+        text = text.strip()
+        text = text.replace(" ", "")
+        return text.split(",")
+
 class StructurePreview(BoxLayout):
     def __init__(self, spec_source=None, palette_source=None, source_source=None, app=None, **kwargs):
         self.orientation = "vertical"
@@ -1131,8 +1162,6 @@ class AccordionItemThing(AccordionItem):
 
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
-        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.resize_size = 600
         self.folded_fold_width = 40
         self.folded_fold_height = Window.size[1]
@@ -1153,8 +1182,6 @@ class AccordionContainer(Accordion):
                 print("create folds call already scheduled")
 
     def create_folds_call(self):
-        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
         # this sets the fold width to match column images correctly
         # ie a square cell will be shown as square on accordion fold
         # however in situations with fewer cells per column, there
@@ -1236,97 +1263,101 @@ class AccordionContainer(Accordion):
         except ZeroDivisionError:
             pass
 
-    def _keyboard_closed(self):
-        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
-        self._keyboard = None
+    def contents_view_down(self):
+        for i, c in enumerate(self.children):
+            try:
+                c.thing.scroller.scroll_y -= (1/c.thing.image_grid.rows)
+            except TypeError:
+                pass
 
-    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        print(keycode[1], modifiers)
-        if keycode[1] == 'down' and not modifiers:
-            for i, c in enumerate(self.children):
-                try:
-                    c.thing.scroller.scroll_y -= (1/c.thing.image_grid.rows)
-                except TypeError:
-                    pass
-        elif keycode[1] == 'up' and not modifiers:
-            for i, c in enumerate(self.children):
-                try:
-                    c.thing.scroller.scroll_y += (1/c.thing.image_grid.rows)
-                except TypeError:
-                    pass
-        elif keycode[1] == 'left' and not modifiers:
-            for i, c in enumerate(self.children):
-                try:
-                    c.thing.scroller.scroll_x -= (1/len(c.thing.image_grid.children))
-                except TypeError:
-                    print(c.thing.image_grid.cols)
-                    pass
-        elif keycode[1] == 'right' and not modifiers:
-            for i, c in enumerate(self.children):
-                try:
-                    c.thing.scroller.scroll_x += (1/len(c.thing.image_grid.children))
-                except TypeError:
-                    print(c.thing.image_grid.cols)
-                    pass
-        elif keycode[1] == 'right' and 'ctrl' in modifiers:
-            for i, c in enumerate(self.children):
-                if c.thing.image_grid.rows is None:
-                    if c.thing.image_grid.cols - 1 > 0:
-                        c.thing.image_grid.cols -= 1
-                elif c.thing.image_grid.cols is None:
-                    if c.thing.image_grid.rows - 1 > 0:
-                        c.thing.image_grid.rows -= 1
-                print(c.thing.image_grid.rows,c.thing.image_grid.cols)
-        elif keycode[1] == 'left' and 'ctrl' in modifiers:
-            for i, c in enumerate(self.children):
-                if c.thing.image_grid.rows is None:
-                    c.thing.image_grid.cols += 1
-                elif c.thing.image_grid.cols is None:
-                    c.thing.image_grid.rows += 1
-        elif keycode[1] == 'left' and 'z' in modifiers:
-            if self.folded_fold_width - 5 > 0:
-                self.folded_fold_width -= 5
-                print(self.folded_fold_width)
-            self.min_space = self.folded_fold_width
-        elif keycode[1] == 'right' and 'z' in modifiers:
-            self.folded_fold_width += 5
+    def contents_view_up(self):
+        for i, c in enumerate(self.children):
+            try:
+                c.thing.scroller.scroll_y += (1/c.thing.image_grid.rows)
+            except TypeError:
+                pass
+
+    def contents_view_left(self):
+        for i, c in enumerate(self.children):
+            try:
+                c.thing.scroller.scroll_x -= (1/len(c.thing.image_grid.children))
+            except TypeError:
+                # print(c.thing.image_grid.cols)
+                pass
+
+    def contents_view_right(self):
+        for i, c in enumerate(self.children):
+            try:
+                c.thing.scroller.scroll_x += (1/len(c.thing.image_grid.children))
+            except TypeError:
+                # print(c.thing.image_grid.cols)
+                pass
+
+    def contents_grow_columns(self):
+        for i, c in enumerate(self.children):
+            if c.thing.image_grid.rows is None:
+                if c.thing.image_grid.cols - 1 > 0:
+                    c.thing.image_grid.cols -= 1
+            elif c.thing.image_grid.cols is None:
+                if c.thing.image_grid.rows - 1 > 0:
+                    c.thing.image_grid.rows -= 1
+
+    def contents_shrink_columns(self):
+        for i, c in enumerate(self.children):
+            if c.thing.image_grid.rows is None:
+                c.thing.image_grid.cols += 1
+            elif c.thing.image_grid.cols is None:
+                c.thing.image_grid.rows += 1
+
+    def fold_shrink_width(self):
+        if self.folded_fold_width - 5 > 0:
+            self.folded_fold_width -= 5
             print(self.folded_fold_width)
-            self.min_space = self.folded_fold_width
-        elif keycode[1] == 'left' and 'shift' in modifiers:
-            for i, c in enumerate(self.children):
-                if c.collapse is False:
-                    try:
-                        self.children[i+1].collapse = False
-                        c.collapse = True
-                        break
-                    except:
-                        self.children[0].collapse = False
-                        c.collapse = True
-                        break
-        elif keycode[1] == 'right' and 'shift' in modifiers:
-            for i, c in enumerate(self.children):
-                if c.collapse is False:
-                    self.children[i-1].collapse = False
+        self.min_space = self.folded_fold_width
+
+    def fold_grow_width(self):
+        self.folded_fold_width += 5
+        print(self.folded_fold_width)
+        self.min_space = self.folded_fold_width
+
+    def fold_unfold_next(self):
+        for i, c in enumerate(self.children):
+            if c.collapse is False:
+                try:
+                    self.children[i+1].collapse = False
                     c.collapse = True
                     break
-        elif keycode[1] == 'up' and 'shift' in modifiers:
-            for i, c in enumerate(self.children):
-                if c.collapse is False:
-                    c.thing.scroller.enlarge()
+                except:
+                    self.children[0].collapse = False
+                    c.collapse = True
                     break
-        elif keycode[1] == 'down' and 'shift' in modifiers:
-            for i, c in enumerate(self.children):
-                if c.collapse is False:
-                    c.thing.scroller.shrink()
-                    break
-        elif keycode[1] == 'down' and 'ctrl' in modifiers:
-            for i, c in enumerate(self.children):
+
+    def fold_unfold_previous(self):
+        for i, c in enumerate(self.children):
+            if c.collapse is False:
+                self.children[i-1].collapse = False
+                c.collapse = True
+                break
+
+    def contents_enlarge(self):
+        for i, c in enumerate(self.children):
+            if c.collapse is False:
                 c.thing.scroller.enlarge()
-        elif keycode[1] == 'up' and 'ctrl' in modifiers:
-            for i, c in enumerate(self.children):
+                break
+
+    def contents_shrink(self):
+        for i, c in enumerate(self.children):
+            if c.collapse is False:
                 c.thing.scroller.shrink()
-        elif keycode[1] == 'c' and 'ctrl' in modifiers:
-            App.get_running_app().stop()
+                break
+
+    def contents_enlarge_all(self):
+        for i, c in enumerate(self.children):
+            c.thing.scroller.enlarge()
+
+    def contents_shrink_all(self):
+        for i, c in enumerate(self.children):
+            c.thing.scroller.shrink()
 
 class ScrollViewer(ScrollView):
     #def on_scroll_move(self, *args,**kwargs):
@@ -1429,6 +1460,10 @@ class FoldedInlayApp(App):
     def __init__(self, *args, **kwargs):
         # store kwargs to passthrough
         self.kwargs = kwargs
+        # handle keybindings
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
+        self.actions = bindings.keybindings()
         self.session_save_path = "~/.config/fold/"
         self.session_save_filename = "session.xml"
         self.session = {}
@@ -1468,9 +1503,77 @@ class FoldedInlayApp(App):
             else:
                 print("get sources call already scheduled")
 
+    def _keyboard_closed(self):
+        # do not unbind the keyboard because
+        # if keyboard is requested by textinput
+        # widget, this keyboard used for app keybinds
+        # will be unbound and not rebound after
+        # defocusing textinput widget
+        #
+        # self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+        # self._keyboard = None
+        pass
+
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        for actions in ["app", self.root.current_tab.text]:
+            try:
+                for k, v in self.actions[actions].items():
+                    if keycode[1] in v[0] and not v[1] and not modifiers:
+                        try:
+                            getattr(self, "{}".format(k))()
+                        except Exception as ex:
+                            pass
+
+                        try:
+                            getattr(self.root.current_tab.content, "{}".format(k))()
+                        except Exception as ex:
+                            pass
+
+                        # use .content.children for tabs
+                        for c in self.root.current_tab.content.children:
+                            try:
+                                getattr(c, "{}".format(k))()
+                            except Exception as ex:
+                                pass
+
+                        # for lower_widget in self.root.current_tab.sub_content:
+                        #     for c in lower_widget.children:
+                        #         try:
+                        #             getattr(c, "{}".format(k))()
+                        #         except Exception as ex:
+                        #             print(ex)
+
+                    elif keycode[1] in v[0] and modifiers:
+                        if len(set(v[1]).intersection(set(modifiers))) == len(modifiers):
+                            try:
+                                getattr(self, "{}".format(k))()
+                            except Exception as ex:
+                                pass
+
+                        try:
+                            getattr(self.root.current_tab.content, "{}".format(k))()
+                        except Exception as ex:
+                            pass
+
+                            for c in self.root.current_tab.content.children:
+                                try:
+                                    getattr(c, "{}".format(k))()
+                                except Exception as ex:
+                                    pass
+
+                            # for lower_widget in self.root.current_tab.sub_content:
+                            #     for c in lower_widget.children:
+                            #         try:
+                            #             getattr(c, "{}".format(k))()
+                            #         except Exception as ex:
+                            #             print(ex)
+            except KeyError:
+                pass
+
     def build(self):
 
         root =  TabbedPanel(do_default_tab=False)
+        self.root = root
         folds = AccordionContainer(orientation='horizontal', **self.kwargs)
         folds.app = self
         config = BoxLayout(orientation="vertical")
@@ -1500,15 +1603,34 @@ class FoldedInlayApp(App):
         config.add_widget(top)
         config.add_widget(bottom)
 
-
         sources_preview = SourcesPreview(app=self)
         sources.add_widget(sources_preview)
         self.session['folds'] = folds
 
+        # for now
+        # create bindings_container as boxlayout
+        # instead of class BindingsContainer(BoxLayout)
+        # since settings do not seem to be correctly set
+        # in order to work with scrollview
+        bindings_container = BoxLayout(orientation="vertical",
+                                       size_hint_y=None,
+                                       )
+
+        actions = 0
+        for domain, domain_actions in self.actions.items():
+            bindings_container.add_widget(Label(text=str(domain), height=40))
+            for action, action_bindings in domain_actions.items():
+                binding_widget = BindingItem(domain, action, action_bindings, self.actions, height=40)
+                bindings_container.add_widget(binding_widget)
+                actions += 1
+        # set height for scrollview
+        bindings_container.height = actions * 40
+        bindings_scroll = ScrollView(bar_width=20)
+        bindings_scroll.add_widget(bindings_container)
 
         structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview, app=self)
         preview.add_widget(structure_preview)
-        for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources")]:
+        for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources"), (bindings_scroll, "bindings")]:
             item = TabbedPanelItem(text="{}".format(title))
             item.add_widget(top_level_item)
             root.add_widget(item)
