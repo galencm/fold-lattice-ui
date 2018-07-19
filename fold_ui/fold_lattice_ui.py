@@ -219,6 +219,7 @@ class ColorMapThing(object):
     color = attr.ib(default=None)
     name =  attr.ib(default=None)
     rough_amount =  attr.ib(default=0)
+    order_value = attr.ib(default=1.0)
 
     @color.validator
     def check_color(self, attribute, value):
@@ -990,7 +991,6 @@ class PaletteThingItem(BoxLayout):
         container = BoxLayout(orientation="vertical", size_hint_y=None)
         row  = BoxLayout(orientation="horizontal", size_hint_y=1)
         row_bottom  = BoxLayout(orientation="horizontal", size_hint_y=1)
-        row.add_widget(Label(text=""))
         autogen_checkbox = CheckBox()
         autogen_checkbox.bind(active=lambda widget, value: [setattr(self, "autogen_possibilities", widget.active), self.parent.update_names()])
         row.add_widget(Label(text=""))
@@ -1012,20 +1012,42 @@ class PaletteThingItem(BoxLayout):
         add_possibility = DropDownInput()
         add_possibility.bind(on_text_validate=lambda widget: self.add_possibility(widget.text))
         row.add_widget(add_possibility)
-        for color_map_thing in self.palette_thing.possibilities:
+
+        for color_map_thing in sorted(self.palette_thing.possibilities, key=lambda cm: cm.order_value, reverse=True):
+            color_map_container = BoxLayout(orientation="vertical")
+            color_map_row_top = BoxLayout()
+            color_map_row_bottom = BoxLayout()
+
             possibility_color = color_map_thing.color.rgb
             color_button = Button(text= color_map_thing.name, background_normal='')
             color_button.possibility_name = color_map_thing.name
             color_button.bind(on_press= lambda widget=self, thing=color_map_thing: self.pick_color(widget, thing))
             color_button.background_color = (*possibility_color, 1)
-            row.add_widget(color_button)
+            color_map_row_top.add_widget(color_button)
             rough_amount = DropDownInput(hint_text=str(color_map_thing.rough_amount))
             rough_amount.bind(on_text_validate= lambda widget, thing=color_map_thing: self.set_rough_amount(widget.text, thing))
-            row.add_widget(rough_amount)
+            possibility_ordering = DropDownInput(hint_text=str(color_map_thing.order_value))
+            possibility_ordering.bind(on_text_validate=lambda widget, thing=color_map_thing: self.set_possibility_order(widget.text, thing))
+            possibility_delete = Button(text="del")
+            possibility_delete.bind(on_press=lambda widget, color_map_thing=color_map_thing: self.remove_possibility(color_map_thing))
+            color_map_row_bottom.add_widget(possibility_ordering)
+            color_map_row_bottom.add_widget(rough_amount)
+            color_map_row_bottom.add_widget(possibility_delete)
+            color_map_container.add_widget(color_map_row_top)
+            color_map_container.add_widget(color_map_row_bottom)
+            row.add_widget(color_map_container)
 
         container.add_widget(row)
         container.add_widget(row_bottom)
         self.add_widget(container)
+
+    def set_possibility_order(self, order, possibility):
+        try:
+            possibility.order_value = float(order)
+            self.generate_palette_overview()
+            self.broadcast_update()
+        except:
+            pass
 
     def set_order(self, order, widget=None):
         try:
@@ -1044,6 +1066,11 @@ class PaletteThingItem(BoxLayout):
 
     def set_name(self, name):
         self.palette_thing.name = name
+        self.generate_palette_overview()
+        self.broadcast_update()
+
+    def remove_possibility(self, color_map):
+        self.palette_thing.possibilities.remove(color_map)
         self.generate_palette_overview()
         self.broadcast_update()
 
