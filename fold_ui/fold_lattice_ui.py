@@ -494,6 +494,7 @@ class SourcesPreview(BoxLayout):
         self.sources_unfiltered = TextInput(multiline=True)
         self.sources = []
         self.source_fields = set()
+        self.source_field_possibilities = {}
         self.samples_per_key = 5
         self.app = app
         self.samplings = 3
@@ -658,6 +659,12 @@ class SourcesPreview(BoxLayout):
             self.app.session["palette"].update_names()
         except KeyError:
             pass
+
+        for source in self.sources:
+            for k, v in source.items():
+                if not k in self.source_field_possibilities:
+                    self.source_field_possibilities[k] = set()
+                self.source_field_possibilities[k].add(v)
 
         for key in self.source_fields:
             sampled_overview[key] = []
@@ -957,6 +964,14 @@ class PaletteThingContainer(BoxLayout):
         for palette_thing in self.children:
             try:
                 palette_thing.set_palette_thing_name.preload = list(self.app.session["sources"].source_fields)
+                # try to add possibilities
+                if palette_thing.autogen_possibilities is True:
+                    try:
+                        for possibility in sorted(self.app.session["sources"].source_field_possibilities[palette_thing.palette_thing.name]):
+                            if not possibility in [colormap.name for colormap in palette_thing.possiblities]:
+                                palette_thing.add_possibility(possibility)
+                    except KeyError:
+                        pass
             except AttributeError as ex:
                 pass
 
@@ -966,6 +981,7 @@ class PaletteThingItem(BoxLayout):
         self.height = 60
         self.minimum_height = 60
         self.size_hint_y = None
+        self.autogen_possibilities = False
         super(PaletteThingItem, self).__init__(**kwargs)
         self.generate_palette_overview()
 
@@ -975,6 +991,11 @@ class PaletteThingItem(BoxLayout):
         row  = BoxLayout(orientation="horizontal", size_hint_y=1)
         row_bottom  = BoxLayout(orientation="horizontal", size_hint_y=1)
         row.add_widget(Label(text=""))
+        autogen_checkbox = CheckBox()
+        autogen_checkbox.bind(active=lambda widget, value: [setattr(self, "autogen_possibilities", widget.active), self.parent.update_names()])
+        row.add_widget(Label(text=""))
+        row.add_widget(autogen_checkbox)
+        row.add_widget(Label(text="autogen"))
         ordering = DropDownInput(hint_text=str(self.palette_thing.order_value))
         row.add_widget(ordering)
         ordering.bind(on_text_validate=lambda widget: self.set_order(widget.text, widget))
