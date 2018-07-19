@@ -647,6 +647,7 @@ class SourcesPreview(BoxLayout):
         self.sources_overview.height = 0
         for source in self.sources:
             self.source_fields.update(list(source.keys()))
+        self.key_selection.preload = sorted(list(self.source_fields))
 
         for key in self.source_fields:
             sampled_overview[key] = []
