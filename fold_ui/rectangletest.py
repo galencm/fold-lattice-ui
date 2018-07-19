@@ -54,7 +54,7 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
 
     expected = {}
     for p in palette:
-        for possiblity in p.possiblities:
+        for possiblity in p.possibilities:
             expected[possiblity.name] = possiblity.rough_amount
             #possiblity.rough_start
             #possiblity.rough_end
@@ -384,13 +384,13 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                 # try to override color here
                 # for k, v in spec.cell_layout_map.items():
                 #{'top': None, 'bottom': None, 'left': None, 'right': None, 'center': 'c'}
-                #[PaletteThing(name='c', possiblities=[ColorMapThing(color=<Color #9017f0>, name='c1', rough_amount=12)], color=<Color #1648e0>)]
+                #[PaletteThing(name='c', possibilities=[ColorMapThing(color=<Color #9017f0>, name='c1', rough_amount=12)], color=<Color #1648e0>)]
                 key_name = spec.cell_layout_map[region]
                 try:
                     value = cell[key_name]
                     for palette_thing in spec.palette():
                         if palette_thing.name == key_name:
-                            for possiblity in palette_thing.possiblities:
+                            for possiblity in palette_thing.possibilities:
                                 if possiblity.name == value:
                                     color = possiblity.color.hex_l
                 except Exception as ex:

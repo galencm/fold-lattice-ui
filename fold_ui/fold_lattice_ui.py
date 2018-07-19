@@ -200,7 +200,7 @@ class ColorPickerPopup(Popup):
 class PaletteThing(object):
     name = attr.ib(default=None)
     # list of ColorMapThing s
-    possiblities = attr.ib(default=attr.Factory(list))
+    possibilities = attr.ib(default=attr.Factory(list))
     color = attr.ib(default=None)
     order_value = attr.ib(default=1.0)
 
@@ -894,7 +894,7 @@ class StructurePreview(BoxLayout):
 
         if not sources:
             for palette in self.palette_source():
-                for thing in palette.possiblities:
+                for thing in palette.possibilities:
                     for num in range(thing.rough_amount + self.parameters["additional_test"]):
                         sources.append({palette.name : thing.name, "meta_number" : num, "meta_random" : random.randint(0,1000), "meta_choice" : random.choice(["1","2"])})
 
@@ -968,7 +968,7 @@ class PaletteThingContainer(BoxLayout):
                 if palette_thing.autogen_possibilities is True:
                     try:
                         for possibility in sorted(self.app.session["sources"].source_field_possibilities[palette_thing.palette_thing.name]):
-                            if not possibility in [colormap.name for colormap in palette_thing.possiblities]:
+                            if not possibility in [colormap.name for colormap in palette_thing.possibilities]:
                                 palette_thing.add_possibility(possibility)
                     except KeyError:
                         pass
@@ -1012,7 +1012,7 @@ class PaletteThingItem(BoxLayout):
         add_possibility = DropDownInput()
         add_possibility.bind(on_text_validate=lambda widget: self.add_possibility(widget.text))
         row.add_widget(add_possibility)
-        for color_map_thing in self.palette_thing.possiblities:
+        for color_map_thing in self.palette_thing.possibilities:
             possibility_color = color_map_thing.color.rgb
             color_button = Button(text= color_map_thing.name, background_normal='')
             color_button.possibility_name = color_map_thing.name
@@ -1049,7 +1049,7 @@ class PaletteThingItem(BoxLayout):
 
     def add_possibility(self, name):
         thing = ColorMapThing(name=name)
-        self.palette_thing.possiblities.append(thing)
+        self.palette_thing.possibilities.append(thing)
         self.generate_palette_overview()
         self.broadcast_update()
 
@@ -1510,13 +1510,13 @@ class FoldedInlayApp(App):
         session = etree.Element("session")
         machine.append(session)
 
-        #possiblities=[ColorMapThing(color=<Color #066e1f>, name='12', rough_amount=12)]
+        #possibilities=[ColorMapThing(color=<Color #066e1f>, name='12', rough_amount=12)]
         for palette_thing in self.session['palette'].palette():
             palette = etree.Element("palette")
             palette.set("name", str(palette_thing.name))
             palette.set("color", str(palette_thing.color.hex_l))
             palette.set("order_value", str(palette_thing.order_value))
-            for possibility in palette_thing.possiblities:
+            for possibility in palette_thing.possibilities:
                 p = etree.Element("possibility")
                 p.set("color", str(possibility.color.hex_l))
                 p.set("name", str(possibility.name))
@@ -1611,7 +1611,7 @@ class FoldedInlayApp(App):
                                 possibility_args["color"] = colour.Color(str(possibility.xpath("./@color")[0]))
                                 possibility_args["name"] = str(possibility.xpath("./@name")[0])
                                 possibility_args["rough_amount"] = int(float(possibility.xpath("./@rough_amount")[0]))
-                                palette_thing.possiblities.append(ColorMapThing(**possibility_args))
+                                palette_thing.possibilities.append(ColorMapThing(**possibility_args))
                             palette_thing = PaletteThingItem(palette_thing)
                             self.session['palette'].add_palette_thing(palette_thing)
 
