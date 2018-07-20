@@ -55,7 +55,7 @@ from kivy.clock import Clock
 
 from ma_cli import data_models
 #sequence_status_img for thumbnails
-from fold_ui.rectangletest import sequence_status, cell_preview, structure_preview
+from fold_ui.visualizations import sequence_status, cell_preview, structure_preview
 import fold_ui.bindings as bindings
 
 r_ip, r_port = data_models.service_connection()
