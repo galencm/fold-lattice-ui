@@ -392,6 +392,7 @@ class CellSpecItem(BoxLayout):
             self.parent.generate_structure()
         except AttributeError:
             pass
+        self.generate_preview()
 
     def generate_cell_layout_widgets(self):
         rows =  BoxLayout(orientation="vertical", size_hint_x=1)
@@ -459,7 +460,7 @@ class CellSpecItem(BoxLayout):
         self.generate_preview()
 
     def generate_preview(self):
-        preview = cell_preview(self.cell_spec, cells=3)[1]
+        preview = cell_preview(self.cell_spec, cells=3, overlay_placeholders=True)[1]
         self.cells_preview.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
         try:
             self.parent.generate_structure()

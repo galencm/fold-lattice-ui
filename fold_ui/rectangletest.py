@@ -303,9 +303,7 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
 
         return (filename, file)
 
-
-
-def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, margins=None, default_margin=5, regions=None, palette=None, background_color=(155, 155, 155, 255), filename=None):
+def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, margins=None, default_margin=5, regions=None, palette=None, background_color=(155, 155, 155, 255), overlay_placeholders=False, filename=None):
     # prefer spec object over kwargs
     # try:
     #     spec.cell_layout_meta["overlay"] = ["page_number"]
@@ -415,7 +413,14 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                                     #print("==", k, region)
                                     if field_area == region:
                                         if meta == "overlay":
-                                            text = str(cell[field_name])
+                                            try:
+                                                text = str(cell[field_name])
+                                            except:
+                                                if overlay_placeholders is True:
+                                                    text = str(field_name)
+                                                else:
+                                                    # catch in outer exception
+                                                    text = str(cell[field_name])
                                             font, fontsize = calculate_fontsize(text, 20, width)
                                             text_width, text_height = draw.textsize(text, font=font)
                                             text_x_offset = 0
