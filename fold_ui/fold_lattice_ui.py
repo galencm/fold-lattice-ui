@@ -1000,7 +1000,7 @@ class PaletteThingContainer(BoxLayout):
                 if palette_thing.autogen_possibilities is True:
                     try:
                         for possibility in sorted(self.app.session["sources"].source_field_possibilities[palette_thing.palette_thing.name]):
-                            if not possibility in [colormap.name for colormap in palette_thing.possibilities]:
+                            if not possibility in [colormap.name for colormap in palette_thing.palette_thing.possibilities]:
                                 palette_thing.add_possibility(possibility)
                     except KeyError:
                         pass
