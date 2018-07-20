@@ -1224,7 +1224,6 @@ class AccordionItemThing(AccordionItem):
 
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
-        self.resize_size = 600
         self.folded_fold_width = 40
         self.folded_fold_height = Window.size[1]
         self.open_column_position = 0
