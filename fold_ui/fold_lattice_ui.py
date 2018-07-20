@@ -504,7 +504,6 @@ class SourcesPreview(BoxLayout):
         self.remaining_samplings = self.samplings
         super(SourcesPreview, self).__init__(**kwargs)
         self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewer" in c[0]]
-        self.item_preview = BoxLayout(orientation="vertical")
         self.scheduled_poll = None
         preview = BoxLayout()
         bottom = BoxLayout(size_hint_y=1, orientation="vertical")
@@ -551,21 +550,8 @@ class SourcesPreview(BoxLayout):
         sources_scroll.add_widget(sources_overview)
         bottom.add_widget(sources_scroll)
         self.sources_overview = sources_overview
-
-        self.key_selection = DropDownInput()
-        self.load_key_as = DropDownInput(preload=[c[0] for c in self.viewerclasses])
-        self.annotation = DropDownInput(preload=["META_FILENAME"])
-
-        input_bar = BoxLayout(size_hint_y=None, height=30)
-        self.key_selection.bind(on_text_validate=lambda widget: self.generate_preview())
-        self.load_key_as.bind(on_text_validate=lambda widget: self.generate_preview())
-        self.annotation.bind(on_text_validate=lambda widget: self.generate_preview())
-
-        input_bar.add_widget(self.key_selection)
-        input_bar.add_widget(self.load_key_as)
-        input_bar.add_widget(self.annotation)
-        preview.add_widget(self.item_preview)
-        preview.add_widget(input_bar)
+        self.view_selector = ViewSelector(source_source=self)
+        preview.add_widget(self.view_selector)
         self.add_widget(preview)
         self.add_widget(bottom)
         self.get_sources()
@@ -609,19 +595,10 @@ class SourcesPreview(BoxLayout):
 
     def generate_preview(self):
         try:
-            self.item_preview.clear_widgets()
-            self.item_preview.add_widget(Label(text="{}({})".format(self.key_selection.text, self.load_key_as.text)))
-            self.item_preview.add_widget(Label(text="{}".format(self.annotation.text)))
-            self.item_class = [c[1] for c in self.viewerclasses if c[0] == self.load_key_as.text][0]
-            self.item_key = self.key_selection.text
             self.app.session["folds"].create_folds()
         except IndexError:
             # no viewerclass selected
             pass
-
-    def init(self):
-        self.key_selection.preload = sorted(list(self.source_fields))
-        self.annotation.preload.extend(sorted(list(self.source_fields)))
 
     def get_sources(self):
         print("getting sources")
@@ -656,7 +633,6 @@ class SourcesPreview(BoxLayout):
         self.sources_overview.height = 0
         for source in self.sources:
             self.source_fields.update(list(source.keys()))
-        self.key_selection.preload = sorted(list(self.source_fields))
         # try to update dropdowns
         try:
             self.app.session["palette"].update_names()
@@ -745,35 +721,80 @@ class ClickableImage(Image):
                     print("--------------")
         return super().on_touch_up(touch)
 
-class AnnotatedImageViewViewer(BoxLayout):
-    def __init__(self, source, **kwargs):
-        self.source = source
-        super(AnnotatedImageViewViewer, self).__init__(**kwargs)
-        try:
-            resize_to = 600
-            image_data = bimg_resized(source, resize_to)
-            img = ClickableImage(size_hint_y=None,
-                                 size_hint_x=None,
-                                 allow_stretch=True,
-                                 keep_ratio=True)
-            img.texture = CoreImage(image_data, ext="jpg").texture
-            self.add_widget(img)
-            self.add_widget(Label(text="----"))
-            self.size = img.norm_image_size
-        except Exception as ex:
-            print(ex)
-            raise ValueError("")
+class ViewSelector(BoxLayout):
+    # use this class to dynamically discover and configure viewviewer classes
+    # in an extensible and modular manner
+    #
+    # for now returns a constructor for a single viewviewer, but could
+    # be improved to return a composite of viewviewers (since all are widgets)
+    def __init__(self, source_source=None, **kwargs):
+        self.source_source = source_source
+        super(ViewSelector, self).__init__(**kwargs)
+        self.viewerclasses = { class_name : class_constructor for (class_name, class_constructor) in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewerConfig" in class_name}
+        self.views_panel =  TabbedPanel(do_default_tab=False, tab_width=200)
+        self.add_widget(self.views_panel)
+        self.viewers = []
+        self.selected_viewer_index = 0
+        for viewer_class in sorted(self.viewerclasses.keys()):
+            item = TabbedPanelItem(text="{}".format(viewer_class))
+            item.add_widget(self.viewerclasses[viewer_class](source_source=self.source_source))
+            self.views_panel.add_widget(item)
+            self.viewers.append(item.content)
+
+    def viewer_next(self):
+        if self.selected_viewer_index == len(self.viewers) - 1:
+            self.selected_viewer_index = 0
+        else:
+            self.selected_viewer_index += 1
+        return self.focused_viewer
+
+    def viewer_previous(self):
+        if self.selected_viewer_index <= 0:
+            self.selected_viewer_index = len(self.viewers) - 1
+        else:
+            self.selected_viewer_index -= 1
+        return self.focused_viewer
+
+    @property
+    def focused_viewer(self):
+        return self.viewers[self.selected_viewer_index].configured()
+
+class ImageViewViewerConfig(BoxLayout):
+    def __init__(self, source_source, **kwargs):
+        self.source_source = source_source
+        super(ImageViewViewerConfig, self).__init__(**kwargs)
+        self.add_widget(Label(text="source key", height=30, size_hint_y=None))
+        self.key_selection = DropDownInput(height=30, size_hint_y=None)
+        self.key_selection.preload = sorted(list(self.source_source.source_fields))
+        self.add_widget(self.key_selection)
+        # keep dropdown updated
+        Clock.schedule_interval(lambda dt: self.update_sources(), 10)
+
+    def update_sources(self):
+        self.key_selection.preload = sorted(list(self.source_source.source_fields))
+
+    def configured(self):
+        class ConfiguredImageViewViewer(ImageViewViewer):
+            # view_source kwarg will be supplied in fold
+            __init__ = functools.partialmethod(ImageViewViewer.__init__, source_key=self.key_selection.text)
+        return ConfiguredImageViewViewer
 
 class ImageViewViewer(ClickableImage):
-    def __init__(self, source, **kwargs):
-        self.source = source
+    def __init__(self, direct_source=None, view_source=None, source_key=None, **kwargs):
         # self.size_hint_y=None
         # self.size_hint_x=None
         # self.allow_stretch=True
         # self.keep_ratio=True
+        self.view_source = view_source
+        if direct_source is not None:
+            source_material_key = direct_source
+
+        if view_source is not None and source_key is not None:
+            source_material_key = view_source[source_key]
+
         try:
             resize_to = 600
-            image_data = bimg_resized(source, resize_to)
+            image_data = bimg_resized(source_material_key, resize_to)
             self.texture = CoreImage(image_data, ext="jpg").texture
             self.size = self.norm_image_size
         except Exception as ex:
@@ -782,10 +803,10 @@ class ImageViewViewer(ClickableImage):
         super(ImageViewViewer, self).__init__(**kwargs)
 
 class TextViewViewer(BoxLayout):
-    def __init__(self, source, **kwargs):
-        self.source = source
+    def __init__(self, view_source, **kwargs):
+        self.view_source = view_source
         super(TextViewViewer, self).__init__(**kwargs)
-        self.add_widget(Label(text=str(source)))
+        self.add_widget(Label(text=str(view_source)))
 
 class BindingItem(BoxLayout):
     def __init__(self, domain, action, action_keybindings, actions, **kwargs):
@@ -1154,22 +1175,26 @@ class AccordionItemThing(AccordionItem):
         # remember that self.sources may contain spaceholding Nones
         for item in self.thing.image_grid.children:
             try:
-                if not item.source in [source[self.parent.app.session['sources'].item_key] for source in self.sources if source and self.parent.app.session['sources'].item_key in source]:
+                if not item.view_source in self.sources:
                     self.thing.image_grid.remove_widget(item)
             except Exception as ex:
+                print(ex)
                 pass
 
         for source_index, source in enumerate(reversed(self.sources)):
             try:
                 if source is not None:
-                    if not source[self.parent.app.session['sources'].item_key] in [s.source for s in self.thing.image_grid.children]:
+                    if not source in [item.view_source for item in self.thing.image_grid.children]:
                         try:
-                            item = self.parent.app.session['sources'].item_class(source[self.parent.app.session['sources'].item_key], size_hint_y=None, size_hint_x=None)
+                            item = self.parent.app.session['sources'].view_selector.focused_viewer
+                            item = item(view_source=source, size_hint_y=None, size_hint_x=None)
                             # add widget in correct position using index parameter
                             self.thing.image_grid.add_widget(item, index=source_index)
                         except Exception as ex:
+                            print(ex)
                             pass
             except Exception as ex:
+                print(ex)
                 pass
 
     def on_touch_up(self, touch):
@@ -1662,7 +1687,6 @@ class FoldedInlayApp(App):
         self.session['sources'] = sources_preview
 
         folds.structure = structure_preview
-        sources_preview.init()
         self.load_session()
 
         self.db_event_subscription = redis_conn.pubsub()
