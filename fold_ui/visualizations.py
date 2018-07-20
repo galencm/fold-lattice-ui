@@ -34,7 +34,7 @@ def vertical_texture(draw, spacing, top, height, width):
     for space in range(0, width, round(width / spacing)):
         draw.line((space, top, space, top + height), width=2, fill=(255, 255, 255, 128))
 
-def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, start_offset=False, ragged=False, ragged_sub=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
+def structure_preview(structure, spec, palette, sparse_expected=False, sparse_found_from_zero=False, sparse_found=False, start_offset=False, only_possible=False, ragged=False, ragged_sub=False, cell_width=None, cell_height=None, column_slots=None, cell_scale=.25, background_color=(155, 155, 155, 255), filename=None, return_columns=False, **kwargs):
 
     if cell_width is None:
         cell_width = 15
@@ -73,8 +73,13 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
         for k, v in cell.items():
             for s in spec:
                 if s.primary_layout_key == k:
-                    overall_structure[k].append(cell)
-                    matched.append(cell)
+                    if only_possible:
+                        if cell[k] in [possiblity.name for possiblity in p.possibilities for p in palette if p.name == k]:
+                            overall_structure[k].append(cell)
+                            matched.append(cell)
+                    else:
+                        overall_structure[k].append(cell)
+                        matched.append(cell)
 
     for s in spec:
         try:
