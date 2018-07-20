@@ -901,7 +901,7 @@ class StructurePreview(BoxLayout):
                 pass
 
             bottom.add_widget(check_parameter_widget)
-            bottom.add_widget(Label(text=check_parameter))
+            bottom.add_widget(Label(text=check_parameter, font_size="12sp"))
             self.checkbox_widgets.append(check_parameter_widget)
 
         self.add_widget(bottom)
