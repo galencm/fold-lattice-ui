@@ -759,6 +759,10 @@ class ViewSelector(BoxLayout):
     def focused_viewer(self):
         return self.viewers[self.selected_viewer_index].configured()
 
+    @property
+    def focused_config_hash(self):
+        return self.viewers[self.selected_viewer_index].config_hash
+
 class ImageViewViewerConfig(BoxLayout):
     def __init__(self, source_source, **kwargs):
         self.source_source = source_source
@@ -767,24 +771,36 @@ class ImageViewViewerConfig(BoxLayout):
         self.key_selection = DropDownInput(height=30, size_hint_y=None)
         self.key_selection.preload = sorted(list(self.source_source.source_fields))
         self.add_widget(self.key_selection)
+        self.add_widget(Label(text="viewing resolution", height=30, size_hint_y=None))
+        self.resolution_selection = DropDownInput(height=30, size_hint_y=None)
+        self.resolution_selection.preload = ["100", "500", "1000", "2000", "3000"]
+        self.resolution_selection.text = "1000"
+        self.add_widget(self.resolution_selection)
         # keep dropdown updated
         Clock.schedule_interval(lambda dt: self.update_sources(), 10)
 
     def update_sources(self):
         self.key_selection.preload = sorted(list(self.source_source.source_fields))
 
+    @property
+    def config_hash(self):
+        # return a string that can be used to check if configuration
+        # has changed and update widgets as necessary
+        return "{}{}".format(self.key_selection.text, self.resolution_selection.text)
+
     def configured(self):
         class ConfiguredImageViewViewer(ImageViewViewer):
             # view_source kwarg will be supplied in fold
-            __init__ = functools.partialmethod(ImageViewViewer.__init__, source_key=self.key_selection.text)
+            __init__ = functools.partialmethod(ImageViewViewer.__init__, source_key=self.key_selection.text, resize_to=int(self.resolution_selection.text), config_hash=self.config_hash)
         return ConfiguredImageViewViewer
 
 class ImageViewViewer(ClickableImage):
-    def __init__(self, direct_source=None, view_source=None, source_key=None, **kwargs):
+    def __init__(self, direct_source=None, view_source=None, source_key=None, resize_to=None, config_hash=None, **kwargs):
         # self.size_hint_y=None
         # self.size_hint_x=None
         # self.allow_stretch=True
         # self.keep_ratio=True
+        self.config_hash = config_hash
         self.view_source = view_source
         if direct_source is not None:
             source_material_key = direct_source
@@ -792,8 +808,10 @@ class ImageViewViewer(ClickableImage):
         if view_source is not None and source_key is not None:
             source_material_key = view_source[source_key]
 
-        try:
+        if not resize_to:
             resize_to = 600
+
+        try:
             image_data = bimg_resized(source_material_key, resize_to)
             self.texture = CoreImage(image_data, ext="jpg").texture
             self.size = self.norm_image_size
@@ -1175,7 +1193,7 @@ class AccordionItemThing(AccordionItem):
         # remember that self.sources may contain spaceholding Nones
         for item in self.thing.image_grid.children:
             try:
-                if not item.view_source in self.sources:
+                if not item.view_source in self.sources or item.config_hash != self.parent.app.session['sources'].view_selector.focused_config_hash:
                     self.thing.image_grid.remove_widget(item)
             except Exception as ex:
                 print(ex)
