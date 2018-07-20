@@ -32,6 +32,34 @@ Fairytale is a program to generate structured and destructured test material for
 
 It is available on the commandline as `fold-ui-fairytale`
 
+**Redis:**
+
+Fairytale needs to connect to a redis server:
+
+* _Testing or standalone without machinic_
+
+  For testing, or if not using machinic a local redis server can be run with minimal setup(see below).
+
+* _Machinic_
+
+  If running other parts of the machinic ecosystem, a redis server is already running and fairytale will connect via service discovery.
+
+If needed, redis can be installed from source or using a package manager:
+
+on Fedora:
+
+```
+sudo dnf install redis
+```
+
+on Debian:
+
+```
+sudo apt-get install redis-server
+```
+
+**Fairytale examples:**
+
 A simple example shows the creation of 600 items on a specified redis server (by default both fold-ui and fairytale will attempt to connect to redis via service discovery).
 
 Create a config file to enable keyspace events and start a redis server:
