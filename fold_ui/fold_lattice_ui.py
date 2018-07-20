@@ -659,6 +659,7 @@ class SourcesPreview(BoxLayout):
         # try to update dropdowns
         try:
             self.app.session["palette"].update_names()
+            self.app.session["palette"].update_palettes()
         except KeyError:
             pass
 
@@ -957,7 +958,12 @@ class PaletteThingGenerator(BoxLayout):
         super(PaletteThingGenerator, self).__init__(**kwargs)
         create_button = Button(text="create palette thing", size_hint_y=None, height=44)
         create_button.bind(on_release=self.create_palette_thing)
+        autogen_checkbox = CheckBox(size_hint_x=.2, size_hint_y=None, height=44)
+        autogen_checkbox.bind(active=lambda widget, value: [setattr( self.palette_thing_container, "autogen_palettes", widget.active), self.palette_thing_container.update_palettes()])
+
         self.add_widget(create_button)
+        self.add_widget(autogen_checkbox)
+        self.add_widget(Label(text="autogen", size_hint_x=.2, size_hint_y=None, height=44))
 
     def create_palette_thing(self, widget, palette_args=None):
         if palette_args is None:
@@ -968,6 +974,7 @@ class PaletteThingGenerator(BoxLayout):
 class PaletteThingContainer(BoxLayout):
     def __init__(self, **kwargs):
         self.app = None
+        self.autogen_palettes = False
         super(PaletteThingContainer, self).__init__(**kwargs)
 
     def palette(self):
@@ -991,6 +998,12 @@ class PaletteThingContainer(BoxLayout):
                     self.remove_widget(palette_thing)
             except AttributeError as ex:
                 pass
+
+    def update_palettes(self):
+        if self.autogen_palettes is True:
+            for palette_name in sorted(self.app.session["sources"].source_field_possibilities.keys()):
+                if not palette_name in [palette_thing.palette_thing.name for palette_thing in self.children]:
+                    self.add_palette_thing(PaletteThingItem(PaletteThing(name=palette_name)))
 
     def update_names(self):
         for palette_thing in self.children:
