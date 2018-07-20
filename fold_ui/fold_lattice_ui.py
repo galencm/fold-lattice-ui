@@ -996,6 +996,7 @@ class PaletteThingContainer(BoxLayout):
                 if palette_thing == palette_thing_id:
                     del palette_thing.palette_thing
                     self.remove_widget(palette_thing)
+                    self.app.session['cellspec'].generate_previews()
             except AttributeError as ex:
                 pass
 
@@ -1004,6 +1005,7 @@ class PaletteThingContainer(BoxLayout):
             for palette_name in sorted(self.app.session["sources"].source_field_possibilities.keys()):
                 if not palette_name in [palette_thing.palette_thing.name for palette_thing in self.children]:
                     self.add_palette_thing(PaletteThingItem(PaletteThing(name=palette_name)))
+                    self.app.session['cellspec'].generate_previews()
 
     def update_names(self):
         for palette_thing in self.children:
