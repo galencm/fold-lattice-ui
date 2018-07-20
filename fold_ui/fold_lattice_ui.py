@@ -503,7 +503,7 @@ class SourcesPreview(BoxLayout):
         self.samplings = 3
         self.remaining_samplings = self.samplings
         super(SourcesPreview, self).__init__(**kwargs)
-        self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewer" in c[0]]
+        self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if c[0].endswith("ViewViewer")]
         self.scheduled_poll = None
         preview = BoxLayout()
         bottom = BoxLayout(size_hint_y=1, orientation="vertical")
