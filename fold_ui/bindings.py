@@ -29,5 +29,8 @@ def keybindings():
     actions["folds"]["contents_shrink"] = [["down"], ["shift"]]
     actions["folds"]["contents_enlarge_all"] = [["up"], ["ctrl"]]
     actions["folds"]["contents_shrink_all"] = [["down"], ["ctrl"]]
+    actions["folds"]["view_next"] = [["up"], ["shift", "ctrl"]]
+    actions["folds"]["view_previous"] = [["down"], ["shift", "ctrl"]]
+    actions["folds"]["view_next"] = [["tab"], []]
 
     return actions

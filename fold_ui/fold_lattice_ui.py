@@ -1337,6 +1337,18 @@ class AccordionContainer(Accordion):
         self.open_column_position = 0
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
+    def view_next(self):
+        try:
+            self.app.session["sources"].view_selector.viewer_next()
+        except:
+            pass
+
+    def view_previous(self):
+        try:
+            self.app.session["sources"].view_selector.viewer_previous()
+        except:
+            pass
+
     def create_folds(self):
             folds_call = lambda dt, self=self: self.create_folds_call()
             schedule = True
@@ -1760,6 +1772,8 @@ class FoldedInlayApp(App):
         sources_preview = SourcesPreview(app=self)
         sources.add_widget(sources_preview)
         self.session['folds'] = folds
+        self.session['sources'] = sources_preview
+
 
         # for now
         # create bindings_container as boxlayout
