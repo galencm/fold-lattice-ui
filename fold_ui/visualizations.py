@@ -220,12 +220,48 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
     #     sorted_cells.extend(v)
     unmatched = [cell for cell in structure if not cell in matched]
 
-    for cell in sorted_cells:
+    # for crude implementation of continuity
+    # see notes below
+    continuity_previous = None
+    continuity_current = None
+    continuity_key = None
+    primary_previous = None
+    annotations = []
+
+    for cell_position, cell in enumerate(sorted_cells):
+        cell_textures = []
         try:
             for k, v in cell.items():
                 for s in spec:
                     if s.primary_layout_key == k:
-                        cells.append(cell_preview(s, cell, meta=s.cell_layout_meta, width=cell_width, height=cell_height)[1:])
+                        # crude implementation of continuity:
+                        #
+                        # part of a rough set of annotations that can
+                        # be used to draw attention or control the automatic
+                        # artifacting of some sources if everything looks good
+                        #
+                        # the annotations would at least include:
+                        # continuous / discontinuous
+                        # duplicate
+                        # too few (based on rough amount)
+                        # too many (based on rough amount)
+                        try:
+                            if s.cell_layout_meta["continuous"]:
+                                for keyname, _ in s.cell_layout_meta["continuous"]:
+                                    continuity_key = keyname
+                        except KeyError:
+                            pass
+                        try:
+                            continuity_previous = continuity_current
+                            continuity_current = cell[continuity_key]
+                            if continuity_current - 1 != continuity_previous and cell[k] == primary_previous:
+                                annotations.append(("discontinuous", continuity_key, cell_position, cell_position - 1))
+                                cell_textures.append("discontinuous")
+                            primary_previous = cell[k]
+                        except KeyError:
+                            pass
+
+                        cells.append(cell_preview(s, cell, meta=s.cell_layout_meta, width=cell_width, height=cell_height, textures=cell_textures)[1:])
         except AttributeError:
             # a padding None
             cells.append(cell_preview(None, None, meta=None, width=cell_width, height=cell_height)[1:])
@@ -308,12 +344,10 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
 
         return (filename, file)
 
-def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, margins=None, default_margin=5, regions=None, palette=None, background_color=(155, 155, 155, 255), overlay_placeholders=False, filename=None):
-    # prefer spec object over kwargs
-    # try:
-    #     spec.cell_layout_meta["overlay"] = ["page_number"]
-    # except:
-    #     pass
+def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, margins=None, default_margin=5, regions=None, palette=None, background_color=(155, 155, 155, 255), overlay_placeholders=False, textures=None, filename=None):
+
+    if textures is None:
+        textures = []
 
     try:
         margins = spec.cell_layout_margins
@@ -413,9 +447,7 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                     for field_name, field_area in field_names:
                         for k, v in spec.cell_layout_map.items():
                             if v == field_name:
-                                #print("==", v, field_name)
                                 if k == region:
-                                    #print("==", k, region)
                                     if field_area == region:
                                         if meta == "overlay":
                                             try:
@@ -438,12 +470,22 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                                                 text_y_offset = (-1 * text_height)
                                             meta_calls.append(functools.partial(draw.text, call(y=cell_y_offset+text_y_offset,x=text_x_offset)[:2], text, fill="black", font=font))
             except Exception as ex:
-                #print(ex)
                 pass
 
-        # print("calling meta calls", meta_calls)
+        # draw textures before meta_calls so
+        # text overlays will be drawn last
+        # discontinuous currently draws in center only
+        for texture in textures:
+            if texture == "discontinuous":
+                dy = 0
+                bar_width = 1
+                x1, y1, x2, y2 = cell_center()
+                for height_step in range(y1, y2, bar_width * 8):
+                    draw.rectangle((0, height_step, width, height_step + bar_width), fill="white")
+
         for meta_call in meta_calls:
             meta_call()
+
         cell_y_offset += height
 
 
