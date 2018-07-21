@@ -37,6 +37,7 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.dropdown import DropDown
 from kivy.uix.popup import Popup
 from kivy.uix.colorpicker import ColorPicker
+from kivy.animation import Animation
 from kivy.properties import ListProperty, ObjectProperty, BooleanProperty
 from kivy.graphics.vertex_instructions import (Rectangle,
                                                Ellipse,
@@ -768,6 +769,107 @@ class ViewSelector(BoxLayout):
     @property
     def focused_config_hash(self):
         return self.viewers[self.selected_viewer_index].config_hash
+
+class EditViewViewerConfig(BoxLayout):
+    def __init__(self, source_source, **kwargs):
+        self.source_source = source_source
+        super(EditViewViewerConfig, self).__init__(**kwargs)
+
+    @property
+    def config_hash(self):
+        return "{}".format("")
+
+    def configured(self):
+        class ConfiguredEditViewViewer(EditViewViewer):
+            # view_source kwarg will be supplied in fold
+            __init__ = functools.partialmethod(EditViewViewer.__init__, config_hash=self.config_hash)
+        return ConfiguredEditViewViewer
+
+class EditViewViewer(BoxLayout):
+    def __init__(self, view_source=None, config_hash=None, **kwargs):
+        self.orientation = "vertical"
+        # how to handle view_source update?
+        # so that correct fields are displayed
+        # different from a configuration update
+        self.config_hash = config_hash
+        self.view_source = view_source
+        self.buttons_container = BoxLayout(orientation="vertical")
+        self.write_fields_button = Button(text="write fields")
+        self.write_fields_button.bind(on_press=self.write_fields)
+        self.add_field_input = TextInput(hint_text="add field", multiline=False)
+        self.add_field_input.bind(on_text_validate=lambda widget: self.create_field(widget.text, widget=widget))
+
+        self.delete_source_button = Button(text="remove entire")
+        self.delete_source_button.bind(on_press=lambda widget: self.delete_source())
+
+        super(EditViewViewer, self).__init__(**kwargs)
+        # META_DB_KEY is the key used to write to database
+        # it is added when source is retrieved and popped
+        # before writing source
+        self.fields_container = BoxLayout(orientation="vertical")
+        if not "META_DB_KEY" in view_source:
+            view_source.update({"META_DB_KEY" : str(uuid.uuid4())})
+        if not "META_DB_TTL" in view_source:
+            view_source.update({"META_DB_TTL" : str(-1)})
+        self.update_field_rows()
+        self.add_widget(self.fields_container)
+        self.buttons_container.add_widget(self.write_fields_button)
+        self.buttons_container.add_widget(self.add_field_input)
+        self.buttons_container.add_widget(self.delete_source_button)
+
+        self.add_widget(self.buttons_container)
+
+    def delete_source(self):
+        redis_conn.delete(self.view_source["META_DB_KEY"])
+
+    def create_field(self, field, widget=None):
+        if not field in self.view_source:
+            self.view_source.update({field : ""})
+            self.update_field_rows()
+            if widget:
+                widget.text = ""
+                widget.hint_text = "add field"
+
+    def remove_field(self, field, widget=None):
+        try:
+            self.view_source.pop(field)
+            self.update_field_rows()
+        except KeyError:
+            pass
+
+    def update_field_rows(self):
+        self.fields_container.clear_widgets()
+        for field, value in self.view_source.items():
+            row = BoxLayout()
+            row.add_widget(Label(text=str(field)))
+            # dropdown?
+            field_input = TextInput(text=str(value), multiline=False)
+            field_input.bind(on_text_validate=lambda widget, field=field, value=value: self.update_field(field, widget.text, widget=widget))
+            field_remove_button = Button(text="X", size_hint_x=.1)
+            field_remove_button.bind(on_press=lambda widget, field=field: self.remove_field(field))
+            row.add_widget(field_input)
+            row.add_widget(field_remove_button)
+            self.fields_container.add_widget(row)
+
+    def update_field(self, field, value, widget=None):
+        if widget:
+            current_background = widget.background_color
+            anim = Animation(background_color=[0,1,0,1], duration=0.5) + Animation(background_color=current_background, duration=0.5)
+            anim.start(widget)
+        self.view_source[field] = value
+
+    def write_fields(self, widget):
+        key_to_write = self.view_source.pop("META_DB_KEY")
+        key_expiration = None
+        try:
+            key_expiration = self.view_source.pop("META_DB_TTL")
+            key_expiration = int(key_expiration)
+        except:
+            pass
+        redis_conn.hmset(key_to_write, self.view_source)
+
+        if key_expiration and key_expiration > 0:
+            redis_conn.expire(key_to_write, key_expiration)
 
 class ImageViewViewerConfig(BoxLayout):
     def __init__(self, source_source, **kwargs):
