@@ -605,7 +605,13 @@ class SourcesPreview(BoxLayout):
         self.source_keys = list(redis_conn.scan_iter(match=self.prefix))
         self.sources = []
         for key in self.source_keys:
-            self.sources.append(redis_conn.hgetall(key))
+            source = redis_conn.hgetall(key)
+            source_ttl = redis_conn.ttl(key)
+            # META_ prefixed keys will not be written to db
+            # used to control parameters for db writing
+            source.update({"META_DB_KEY" : key})
+            source.update({"META_DB_TTL" : source_ttl})
+            self.sources.append(source)
 
         self.preprocess_sources()
         self.sources_unfiltered.text = "\n".join(self.source_keys)
