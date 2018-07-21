@@ -1704,38 +1704,23 @@ class FoldedInlayApp(App):
                                 getattr(c, "{}".format(k))()
                             except Exception as ex:
                                 pass
-
-                        # for lower_widget in self.root.current_tab.sub_content:
-                        #     for c in lower_widget.children:
-                        #         try:
-                        #             getattr(c, "{}".format(k))()
-                        #         except Exception as ex:
-                        #             print(ex)
-
                     elif keycode[1] in v[0] and modifiers:
-                        if len(set(v[1]).intersection(set(modifiers))) == len(modifiers):
+                        if v[1] == modifiers:
                             try:
                                 getattr(self, "{}".format(k))()
                             except Exception as ex:
                                 pass
 
-                        try:
-                            getattr(self.root.current_tab.content, "{}".format(k))()
-                        except Exception as ex:
-                            pass
+                            try:
+                                getattr(self.root.current_tab.content, "{}".format(k))()
+                            except Exception as ex:
+                                pass
 
                             for c in self.root.current_tab.content.children:
                                 try:
                                     getattr(c, "{}".format(k))()
                                 except Exception as ex:
                                     pass
-
-                            # for lower_widget in self.root.current_tab.sub_content:
-                            #     for c in lower_widget.children:
-                            #         try:
-                            #             getattr(c, "{}".format(k))()
-                            #         except Exception as ex:
-                            #             print(ex)
             except KeyError:
                 pass
 
