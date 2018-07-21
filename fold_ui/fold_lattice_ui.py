@@ -973,7 +973,6 @@ class StructurePreview(BoxLayout):
         self.source_source = source_source
         self.app = app
         self.parameters = {}
-        self.parameters["additional_test"] = 0
         self.parameters["cell_width"] = 40
         self.parameters["cell_height"] = 40
         self.parameters["column_slots"] = 5
@@ -985,7 +984,7 @@ class StructurePreview(BoxLayout):
         top.add_widget(self.preview_image)
         self.add_widget(top)
 
-        for parameter in ["cell_width", "cell_height", "column_slots", "additional_test"]:
+        for parameter in ["cell_width", "cell_height", "column_slots"]:
             bottom.add_widget(Label(text=parameter))
             parameter_widget = DropDownInput()
             parameter_widget.bind(on_text_validate=lambda widget, parameter=parameter: self.set_parameter(parameter, widget.text))
@@ -1076,7 +1075,7 @@ class StructurePreview(BoxLayout):
         if not sources:
             for palette in self.palette_source():
                 for thing in palette.possibilities:
-                    for num in range(thing.rough_amount + self.parameters["additional_test"]):
+                    for num in range(thing.rough_amount):
                         sources.append({palette.name : thing.name, "meta_number" : num, "meta_random" : random.randint(0,1000), "meta_choice" : random.choice(["1","2"])})
 
         # lru cache may be useful here, but list is unhashable
