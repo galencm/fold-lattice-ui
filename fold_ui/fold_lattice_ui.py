@@ -686,6 +686,26 @@ class SourcesPreview(BoxLayout):
         if self.remaining_samplings > 0:
             self.remaining_samplings -= 1
 
+class PreviewImage(Image):
+    def __init__(self, **kwargs):
+        super(PreviewImage, self).__init__(**kwargs)
+
+    def on_touch_down(self, touch):
+        if touch.button == 'left':
+            if self.collide_point(touch.pos[0], touch.pos[1]):
+                width_offset = (self.size[0] - self.norm_image_size[0]) / 2
+                if  touch.pos[0] > width_offset and touch.pos[0] < self.size[0] - width_offset:
+                    # click is inside scaled image
+                    center = touch.pos[0] - (width_offset)
+                    # scale column width for displaued image
+                    scaling = self.norm_image_size[0] / self.texture_size[0]
+                    column_width = int(self.parent.parent.app.session["structure"].parameters["cell_width"] * scaling)
+                    for column_num, column_span in enumerate(range(0, int(self.norm_image_size[0]), column_width)):
+                        if center > column_span and center < column_span + column_width:
+                            # print("center column = {}".format(column_num))
+                            self.parent.parent.app.session["folds"].update_column_span(column_num)
+        return super().on_touch_down(touch)
+
 class ClickableImage(Image):
     def __init__(self, **kwargs):
         super(ClickableImage, self).__init__(**kwargs)
@@ -967,7 +987,7 @@ class BindingItem(BoxLayout):
 class StructurePreview(BoxLayout):
     def __init__(self, spec_source=None, palette_source=None, source_source=None, app=None, **kwargs):
         self.orientation = "vertical"
-        self.preview_image = Image()
+        self.preview_image = PreviewImage()
         self.spec_source = spec_source
         self.palette_source = palette_source
         self.source_source = source_source
@@ -1335,6 +1355,9 @@ class AccordionItemThing(AccordionItem):
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
         self.folded_fold_width = 40
+        self.window_cols_start = 0
+        self.window_cols_span = 10
+        self.window_cols_end = 10
         self.folded_fold_height = Window.size[1]
         self.open_column_position = 0
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
@@ -1390,6 +1413,24 @@ class AccordionContainer(Accordion):
                 child.height = child_space
                 y += child_space
 
+    def update_column_span(self, center_column):
+        half_span = int(self.window_cols_span / 2)
+        self.window_cols_start = center_column - half_span
+        self.window_cols_end = center_column + half_span
+
+        if center_column % 2 == 0:
+             self.window_cols_end -= 1
+
+        if self.window_cols_start < 0:
+            self.window_cols_start += half_span
+            self.window_cols_end += half_span
+
+        # set column position if a fold is open
+        if self.open_column_position:
+            self.open_column_position = half_span
+
+        self.create_folds()
+
     def view_next(self):
         try:
             self.app.session["sources"].view_selector.viewer_next()
@@ -1433,6 +1474,12 @@ class AccordionContainer(Accordion):
             column_number = 0
             try:
                 filenames, filebytes, sources = zip(*self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters))
+
+                # slice to window of sources
+                sources = sources[self.window_cols_start:self.window_cols_end]
+                filebytes = filebytes[self.window_cols_start:self.window_cols_end]
+                filenames = filenames[self.window_cols_start:self.window_cols_end]
+
                 # remove or add folds to match filenames/sources
                 if len(self.children) > len(sources):
                     for child in self.children[((len(self.children) - len(sources)) * -1):]:
