@@ -1381,7 +1381,10 @@ class AccordionContainer(Accordion):
                 filenames, filebytes, sources = zip(*self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters))
                 # remove or add folds to match filenames/sources
                 if len(self.children) > len(sources):
-                    for child in self.children[len(self.children) - len(sources):]:
+                    for child in self.children[((len(self.children) - len(sources)) * -1):]:
+                        # self.open_column_position and column_index are mismatched?
+                        if self.open_column_position and self.open_column_position == child.column_index:
+                            self.open_column_position = None
                         self.remove_widget(child)
                 elif len(self.children) < len(sources):
                     for _ in range(len(sources) - len(self.children)):
@@ -1395,6 +1398,9 @@ class AccordionContainer(Accordion):
                     fold.column_index = column_number
                     fold.background_normal = filename
                     fold.background_selected = filename
+                    if self.open_column_position:
+                        if self.open_column_position == fold.column_index:
+                            fold.collapse = False
                     if fold.collapse is False:
                         fold.render_contents()
                     column_number += 1
