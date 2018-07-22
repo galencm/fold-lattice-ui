@@ -1342,15 +1342,27 @@ class AccordionItemThing(AccordionItem):
                 print(ex)
                 pass
 
+    def toggle_collapse(self):
+        self.collapse = not self.collapse
+        if self.collapse is False:
+            self.parent.open_column_position = self.column_index
+            self.render_contents()
+        elif self.collapse is True:
+            self.parent.open_column_position = None
+
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
-            self.collapse = not self.collapse
-            if self.collapse is False:
-                self.parent.open_column_position = self.column_index
-                self.render_contents()
-            elif self.collapse is True:
-                self.parent.open_column_position = None
-        return super(AccordionItemThing, self).on_touch_up(touch)
+            if touch.button == 'left':
+                # collapse / uncollapse only when accordion title bar
+                # is clicked, not inside an opened accordion
+                if self.accordion.orientation == "horizontal":
+                    if touch.pos[0] < self.x + self.min_space:
+                        self.toggle_collapse()
+                elif self.accordion.orientation == "vertical":
+                    if touch.pos[1] < self.y + self.min_space:
+                        self.toggle_collapse()
+
+        return super(AccordionItemThing, self).on_touch_down(touch)
 
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
