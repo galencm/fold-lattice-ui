@@ -1322,11 +1322,14 @@ class AccordionItemThing(AccordionItem):
                 print(ex)
                 pass
 
-    def on_touch_up(self, touch):
+    def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
+            self.collapse = not self.collapse
             if self.collapse is False:
                 self.parent.open_column_position = self.column_index
                 self.render_contents()
+            elif self.collapse is True:
+                self.parent.open_column_position = None
         return super(AccordionItemThing, self).on_touch_up(touch)
 
 class AccordionContainer(Accordion):
