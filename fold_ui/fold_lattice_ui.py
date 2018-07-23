@@ -1345,28 +1345,37 @@ class AccordionItemThing(AccordionItem):
             except Exception as ex:
                 print(ex)
                 pass
+        print("postrendering", len(self.thing.image_grid.children))
 
     def toggle_collapse(self):
         self.collapse = not self.collapse
         if self.collapse is False:
-            self.parent.open_column_position = self.column_index
             self.render_contents()
+            self.parent.open_column_position = self.column_index
         elif self.collapse is True:
             self.parent.open_column_position = None
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
+            return_touch = True
             if touch.button == 'left':
                 # collapse / uncollapse only when accordion title bar
                 # is clicked, not inside an opened accordion
+                # set flag to end touch_down event to avoid other
+                # accordion collapsing behavior
                 if self.accordion.orientation == "horizontal":
                     if touch.pos[0] < self.x + self.min_space:
                         self.toggle_collapse()
+                        return_touch = False
                 elif self.accordion.orientation == "vertical":
                     if touch.pos[1] < self.y + self.min_space:
                         self.toggle_collapse()
+                        return_touch = False
 
-        return super(AccordionItemThing, self).on_touch_down(touch)
+            if return_touch is True:
+                return super(AccordionItemThing, self).on_touch_down(touch)
+        else:
+            return super(AccordionItemThing, self).on_touch_down(touch)
 
 class AccordionContainer(Accordion):
     def __init__(self, **kwargs):
