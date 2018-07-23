@@ -114,6 +114,7 @@ kv = """
             id: image_grid
             #cols: 1
             rows: 1
+            zoom_size: None
             #size_hint:(None,None)
             size_hint_y: None
             size_hint_x:None
@@ -1666,12 +1667,14 @@ class ScrollViewer(ScrollView):
         for child in self.parent.image_grid.children:
             child.width *= zoom_amount
             child.height *= zoom_amount
+            self.parent.image_grid.zoom_size = child.size
 
     def shrink(self, zoom_amount=2):
         for child in self.parent.image_grid.children:
             print(child.size)
             child.width /= zoom_amount
             child.height /= zoom_amount
+            self.parent.image_grid.zoom_size = child.size
 
     def on_touch_down(self, touch):
         #print(">>",touch.button)
