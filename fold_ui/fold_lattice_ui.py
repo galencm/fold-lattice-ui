@@ -1364,6 +1364,8 @@ class AccordionItemThing(AccordionItem):
                      to_remove.append(item)
                 elif item.viewer != self.parent.app.session['sources'].view_selector.viewer_current():
                      to_remove.append(item)
+                elif item.size != self.parent.zoom_size_all:
+                    item.size = self.parent.zoom_size_all
                 else:
                     pass
             except Exception as ex:
@@ -1373,6 +1375,9 @@ class AccordionItemThing(AccordionItem):
         # remove widgets here
         for widget in to_remove:
             self.thing.image_grid.remove_widget(widget)
+
+        # set to same columns / rows as other folds
+        self.parent.contents_set_columns(self.parent.columns_all, self.parent.rows_all)
 
         for source_index, source in enumerate(reversed(self.sources)):
             try:
@@ -1385,6 +1390,10 @@ class AccordionItemThing(AccordionItem):
                             # add widget in correct position using index parameter
                             if self.thing.image_grid.zoom_size:
                                 item.size = self.thing.image_grid.zoom_size
+
+                            if self.parent.zoom_size_all:
+                                item.size = self.parent.zoom_size_all
+
                             self.thing.image_grid.add_widget(item, index=source_index)
                         except Exception as ex:
                             print(ex)
@@ -1433,6 +1442,9 @@ class AccordionContainer(Accordion):
         self.folded_fold_height = Window.size[1]
         self.open_column_position = 0
         self.nonlinear_columns = []
+        self.zoom_size_all = None
+        self.columns_all = None
+        self.rows_all = None
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     # copy paste _do_layout to override 'if all_collapsed:'
@@ -1683,6 +1695,13 @@ class AccordionContainer(Accordion):
                 # print(c.thing.image_grid.cols)
                 pass
 
+    def contents_set_columns(self, widget, columns=None, rows=None):
+        try:
+            widget.thing.image_grid.cols = columns
+            widget.thing.image_grid.rows = rows
+        except:
+            pass
+
     def contents_grow_columns(self):
         for i, c in enumerate(self.children):
             if c.thing.image_grid.rows is None:
@@ -1692,12 +1711,18 @@ class AccordionContainer(Accordion):
                 if c.thing.image_grid.rows - 1 > 0:
                     c.thing.image_grid.rows -= 1
 
+        self.parent.columns_all =  c.thing.image_grid.cols
+        self.parent.rows_all =  c.thing.image_grid.rows
+
     def contents_shrink_columns(self):
         for i, c in enumerate(self.children):
             if c.thing.image_grid.rows is None:
                 c.thing.image_grid.cols += 1
             elif c.thing.image_grid.cols is None:
                 c.thing.image_grid.rows += 1
+
+        self.parent.columns_all =  c.thing.image_grid.cols
+        self.parent.rows_all =  c.thing.image_grid.rows
 
     def fold_shrink_width(self):
         if self.folded_fold_width - 5 > 0:
@@ -1756,6 +1781,8 @@ class ScrollViewer(ScrollView):
             child.width *= zoom_amount
             child.height *= zoom_amount
             self.parent.image_grid.zoom_size = child.size
+            # accordion container widget
+            self.parent.parent.parent.parent.parent.parent.zoom_size_all = child.size
 
     def shrink(self, zoom_amount=1.25):
         for child in self.parent.image_grid.children:
@@ -1763,6 +1790,8 @@ class ScrollViewer(ScrollView):
             child.width /= zoom_amount
             child.height /= zoom_amount
             self.parent.image_grid.zoom_size = child.size
+            # accordion container widget
+            self.parent.parent.parent.parent.parent.parent.zoom_size_all = child.size
 
     def on_touch_down(self, touch):
         if touch.button == 'left':
