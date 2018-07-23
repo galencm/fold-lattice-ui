@@ -776,6 +776,9 @@ class ViewSelector(BoxLayout):
             self.selected_viewer_index += 1
         return self.focused_viewer
 
+    def viewer_current(self):
+        return self.viewers[self.selected_viewer_index]
+
     def viewer_previous(self):
         if self.selected_viewer_index <= 0:
             self.selected_viewer_index = len(self.viewers) - 1
