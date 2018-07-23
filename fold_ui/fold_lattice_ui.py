@@ -690,6 +690,11 @@ class PreviewImage(Image):
                         if center > column_span and center < column_span + column_width:
                             # print("center column = {}".format(column_num))
                             self.parent.parent.app.session["folds"].update_column_span(column_num)
+                            # try to switch to folds tab
+                            try:
+                                self.parent.parent.app.root.switch_to([tab for tab in self.parent.parent.app.root.tab_list if tab.text == "folds"][0])
+                            except Exception as ex:
+                                print(ex)
         return super().on_touch_down(touch)
 
 class ClickableImage(Image):
