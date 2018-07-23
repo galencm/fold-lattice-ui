@@ -1325,7 +1325,7 @@ class AccordionItemThing(AccordionItem):
 
         # identify widgets to remove first, then remove
         to_remove = []
-        for item_num, item in enumerate(self.thing.image_grid.children):
+        for item in self.thing.image_grid.children:
             try:
                 if not item.view_source in self.sources:
                      to_remove.append(item)
