@@ -66,21 +66,6 @@ redis_conn = redis.StrictRedis(host=r_ip, port=r_port, decode_responses=True)
 Config.read('config.ini')
 kv = """
 
-<Selection>:
-    #size:self.size
-    #pos:self.pos
-    size_hint:None,None
-    border:1,1,1,1
-    #background_color:1,1,1,0.5
-    background_color:1,0,0,0.5
-    background_normal:''
-    # canvas:
-    #     Color:
-    #         rgba: 1, 0, 0, 0.25
-    #     Rectangle:
-    #         pos:self.pos
-    #         size:self.size
-
 <ScatterTextWidget>:
     id:image_container
     orientation: 'vertical'
@@ -1727,18 +1712,6 @@ class ScrollViewer(ScrollView):
         elif touch.button == 'scrolldown':
             self.shrink()
     pass
-
-class Selection(Button):
-    def __init__(self, **kwargs):
-        super(Selection, self).__init__(**kwargs)
-
-    def on_press(self):
-        print("pressed", self)
-        self.parent.remove_widget(self)
-        print("deleting self", self)
-        del self
-    #def on_release(self):
-    #    print("release",self)
 
 class ScatterTextWidget(BoxLayout):
     text_colour = ObjectProperty([1, 0, 0, 1])
