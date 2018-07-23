@@ -254,7 +254,10 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
                         try:
                             continuity_previous = continuity_current
                             continuity_current = cell[continuity_key]
-                            if continuity_current - 1 != continuity_previous and cell[k] == primary_previous:
+                            if continuity_current == continuity_previous and cell[k] == primary_previous:
+                                annotations.append(("duplicate", continuity_key, cell_position, cell_position - 1))
+                                cell_textures.append("duplicate")
+                            elif continuity_current - 1 != continuity_previous and cell[k] == primary_previous:
                                 annotations.append(("discontinuous", continuity_key, cell_position, cell_position - 1))
                                 cell_textures.append("discontinuous")
                             primary_previous = cell[k]
@@ -482,6 +485,12 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                 x1, y1, x2, y2 = cell_center()
                 for height_step in range(y1, y2, bar_width * 8):
                     draw.rectangle((0, height_step, width, height_step + bar_width), fill="white")
+            elif texture == "duplicate":
+                dx = 0
+                bar_width = 1
+                x1, y1, x2, y2 = cell_center()
+                for width_step in range(x1, x2, bar_width * 4):
+                    draw.rectangle((width_step, 0, width_step + bar_width, height), fill="white")
 
         for meta_call in meta_calls:
             meta_call()
