@@ -18,6 +18,7 @@ import sys
 import argparse
 import functools
 import fnmatch
+import operator
 import uuid
 import colour
 from PIL import Image as PImage
@@ -695,6 +696,20 @@ class PreviewImage(Image):
                                 self.parent.parent.app.root.switch_to([tab for tab in self.parent.parent.app.root.tab_list if tab.text == "folds"][0])
                             except Exception as ex:
                                 print(ex)
+        elif touch.button == 'right':
+            if self.collide_point(touch.pos[0], touch.pos[1]):
+                width_offset = (self.size[0] - self.norm_image_size[0]) / 2
+                if  touch.pos[0] > width_offset and touch.pos[0] < self.size[0] - width_offset:
+                    # click is inside scaled image
+                    center = touch.pos[0] - (width_offset)
+                    # scale column width for displaued image
+                    scaling = self.norm_image_size[0] / self.texture_size[0]
+                    column_width = int(self.parent.parent.app.session["structure"].parameters["cell_width"] * scaling)
+                    for column_num, column_span in enumerate(range(0, int(self.norm_image_size[0]), column_width)):
+                        if center > column_span and center < column_span + column_width:
+                            # print("center column = {}".format(column_num))
+                            self.parent.parent.app.session["folds"].add_nonlinear_column(column_num)
+
         return super().on_touch_down(touch)
 
 class ClickableImage(Image):
@@ -1406,6 +1421,7 @@ class AccordionContainer(Accordion):
         self.window_cols_end = 10
         self.folded_fold_height = Window.size[1]
         self.open_column_position = 0
+        self.nonlinear_columns = []
         super(AccordionContainer, self).__init__(anim_duration=0, min_space=self.folded_fold_width)
 
     # copy paste _do_layout to override 'if all_collapsed:'
@@ -1459,7 +1475,14 @@ class AccordionContainer(Accordion):
                 child.height = child_space
                 y += child_space
 
+    def add_nonlinear_column(self, column_number):
+        self.nonlinear_columns.append(column_number)
+        self.create_folds()
+
     def update_column_span(self, center_column):
+        # clear nonlinear columns
+        self.nonlinear_columns = []
+
         half_span = int(self.window_cols_span / 2)
         self.window_cols_start = center_column - half_span
         self.window_cols_end = center_column + half_span
@@ -1531,10 +1554,23 @@ class AccordionContainer(Accordion):
             try:
                 filenames, filebytes, sources = zip(*self.app.session['structure'].generate_structure_columns(parameters=self.app.session['structure'].parameters))
 
-                # slice to window of sources
-                sources = sources[self.window_cols_start:self.window_cols_end]
-                filebytes = filebytes[self.window_cols_start:self.window_cols_end]
-                filenames = filenames[self.window_cols_start:self.window_cols_end]
+                if self.nonlinear_columns:
+                    sources = operator.itemgetter(*self.nonlinear_columns)(sources)
+                    filebytes = operator.itemgetter(*self.nonlinear_columns)(filebytes)
+                    filenames = operator.itemgetter(*self.nonlinear_columns)(filenames)
+                    # if only a single item is returned,
+                    # make sure it is still in a tuple
+                    if not isinstance(sources, tuple):
+                        sources = (sources,)
+                    if not isinstance(filebytes, tuple):
+                        filebytes = (filebytes,)
+                    if not isinstance(filenames, tuple):
+                        filenames = (filenames,)
+                else:
+                    # slice to window of sources
+                    sources = sources[self.window_cols_start:self.window_cols_end]
+                    filebytes = filebytes[self.window_cols_start:self.window_cols_end]
+                    filenames = filenames[self.window_cols_start:self.window_cols_end]
 
                 # remove or add folds to match filenames/sources
                 if len(self.children) > len(sources):
