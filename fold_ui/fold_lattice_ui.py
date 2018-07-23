@@ -1322,13 +1322,26 @@ class AccordionItemThing(AccordionItem):
     def render_contents(self):
         # sources may have changed, remove widgets if widget.source is no longer in sources
         # remember that self.sources may contain spaceholding Nones
-        for item in self.thing.image_grid.children:
+
+        # identify widgets to remove first, then remove
+        to_remove = []
+        for item_num, item in enumerate(self.thing.image_grid.children):
             try:
-                if not item.view_source in self.sources or item.config_hash != self.parent.app.session['sources'].view_selector.focused_config_hash:
-                    self.thing.image_grid.remove_widget(item)
+                if not item.view_source in self.sources:
+                     to_remove.append(item)
+                elif item.config_hash != self.parent.app.session['sources'].view_selector.focused_config_hash:
+                     to_remove.append(item)
+                elif item.viewer != self.parent.app.session['sources'].view_selector.viewer_current():
+                     to_remove.append(item)
+                else:
+                    pass
             except Exception as ex:
                 print(ex)
                 pass
+
+        # remove widgets here
+        for widget in to_remove:
+            self.thing.image_grid.remove_widget(widget)
 
         for source_index, source in enumerate(reversed(self.sources)):
             try:
@@ -1337,7 +1350,10 @@ class AccordionItemThing(AccordionItem):
                         try:
                             item = self.parent.app.session['sources'].view_selector.focused_viewer
                             item = item(view_source=source, size_hint_y=None, size_hint_x=None)
+                            item.viewer = self.parent.app.session['sources'].view_selector.viewer_current()
                             # add widget in correct position using index parameter
+                            if self.thing.image_grid.zoom_size:
+                                item.size = self.thing.image_grid.zoom_size
                             self.thing.image_grid.add_widget(item, index=source_index)
                         except Exception as ex:
                             print(ex)
@@ -1459,13 +1475,23 @@ class AccordionContainer(Accordion):
     def view_next(self):
         try:
             self.app.session["sources"].view_selector.viewer_next()
-        except:
+            # rerender in any open folds
+            for c in self.children:
+                if c.collapse is False:
+                    c.render_contents()
+        except Exception as ex:
+            print(ex)
             pass
 
     def view_previous(self):
         try:
             self.app.session["sources"].view_selector.viewer_previous()
-        except:
+            # rerender in any open folds
+            for c in self.children:
+                if c.collapse is False:
+                    c.render_contents()
+        except Exception as ex:
+            print(ex)
             pass
 
     def create_folds(self):
