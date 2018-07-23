@@ -20,6 +20,7 @@ import functools
 import fnmatch
 import operator
 import uuid
+import math
 import colour
 from PIL import Image as PImage
 from lxml import etree
@@ -686,7 +687,11 @@ class PreviewImage(Image):
                     center = touch.pos[0] - (width_offset)
                     # scale column width for displaued image
                     scaling = self.norm_image_size[0] / self.texture_size[0]
-                    column_width = int(self.parent.parent.app.session["structure"].parameters["cell_width"] * scaling)
+                    # round up, important for large images
+                    # this may have to be refined for even larger images
+                    column_width = int(math.ceil(self.parent.parent.app.session["structure"].parameters["cell_width"] * scaling))
+                    print("scaling {}, offset {}, scaled_width {}".format(scaling, width_offset, column_width))
+
                     for column_num, column_span in enumerate(range(0, int(self.norm_image_size[0]), column_width)):
                         if center > column_span and center < column_span + column_width:
                             # print("center column = {}".format(column_num))
