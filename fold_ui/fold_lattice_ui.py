@@ -1750,8 +1750,6 @@ class AccordionContainer(Accordion):
             c.thing.scroller.shrink()
 
 class ScrollViewer(ScrollView):
-    #def on_scroll_move(self, *args,**kwargs):
-    #    print(args)
 
     def enlarge(self, zoom_amount=1.25):
         for child in self.parent.image_grid.children:
@@ -1767,18 +1765,12 @@ class ScrollViewer(ScrollView):
             self.parent.image_grid.zoom_size = child.size
 
     def on_touch_down(self, touch):
-        #print(">>",touch.button)
-        #self.dispatch('on_test_event', touch)  # Some event that happens with on_touch_down
-        #zoom_amount = 100
-        zoom_amount = 2
-        print(touch.button)
         if touch.button == 'left':
             return super().on_touch_down(touch)
         elif touch.button == 'scrollup':
             self.enlarge()
         elif touch.button == 'scrolldown':
             self.shrink()
-    pass
 
 class ScatterTextWidget(BoxLayout):
     text_colour = ObjectProperty([1, 0, 0, 1])
