@@ -108,31 +108,6 @@ fold-ui-fairytale --db-host 127.0.0.1 --db-port 6379 --db-expire-in 1000 --part-
 fold-ui-fairytale --db-host 127.0.0.1 --db-port 6665 --db-expire-in 1000 --part-part-amounts 100 100 100 --part-increment-field page_number --part-field-values part part1 part2 part3 --verbose --structure-stagger-delay 0 --structure-disorder 300 --db-del-pattern glworb:* --db-del-field part --verbose --db-expire-interval 1 --structure-missing 2 --structure-duplicate 2
 ```
 
-
-## Keybindings:
-
-Up/Down: move view up or down a row in unfolded fold
-
-Left/Right: move view back or forward a column in unfolded fold
-
-Ctrl-Up: increase item size in all folds
-
-Ctrl-Down: decrease item size in all folds
-
-Ctrl-Left: increase columns / decrease rows
-
-Ctrl-Right: increase rows / decrease columns
-
-Shift-Left: unfold to left
-
-Shift-Right: unfold to right
-
-Shift-Up: increase item size in unfolded fold
-
-Shift-Down: decrease item size in unfolded fold
-
-Ctrl-C: exit
-
 ## Contributing
 This project uses the C4 process 
 
