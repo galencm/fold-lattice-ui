@@ -812,7 +812,7 @@ class EditViewViewer(BoxLayout):
         self.write_fields_button.bind(on_press=self.write_fields)
         self.add_field_input = TextInput(hint_text="add field", multiline=False)
         self.add_field_input.bind(on_text_validate=lambda widget: self.create_field(widget.text, widget=widget))
-
+        self.field_widgets = []
         self.delete_source_button = Button(text="remove entire")
         self.delete_source_button.bind(on_press=lambda widget: self.delete_source())
 
@@ -834,7 +834,10 @@ class EditViewViewer(BoxLayout):
         self.add_widget(self.buttons_container)
 
     def delete_source(self):
-        redis_conn.delete(self.view_source["META_DB_KEY"])
+        try:
+            redis_conn.delete(self.view_source["META_DB_KEY"])
+        except KeyError:
+            pass
 
     def create_field(self, field, widget=None):
         if not field in self.view_source:
@@ -853,17 +856,20 @@ class EditViewViewer(BoxLayout):
 
     def update_field_rows(self):
         self.fields_container.clear_widgets()
+        self.field_widgets = []
         for field, value in self.view_source.items():
             row = BoxLayout()
             row.add_widget(Label(text=str(field)))
             # dropdown?
             field_input = TextInput(text=str(value), multiline=False)
+            field_input.field_for = str(field)
             field_input.bind(on_text_validate=lambda widget, field=field, value=value: self.update_field(field, widget.text, widget=widget))
             field_remove_button = Button(text="X", size_hint_x=.1)
             field_remove_button.bind(on_press=lambda widget, field=field: self.remove_field(field))
             row.add_widget(field_input)
             row.add_widget(field_remove_button)
             self.fields_container.add_widget(row)
+            self.field_widgets.append(field_input)
 
     def update_field(self, field, value, widget=None):
         if widget:
@@ -873,6 +879,15 @@ class EditViewViewer(BoxLayout):
         self.view_source[field] = value
 
     def write_fields(self, widget):
+        # write contents if widget fields before button is
+        # pressed in case user forgot to press enter after value
+        #
+        # for now, still require enter to be pressed for META_
+        # prefixed fields since it may disrupt values such as ttl
+        for w in self.field_widgets:
+            if not "META_" in w.field_for:
+                self.update_field(w.field_for, w.text, w)
+
         key_to_write = self.view_source.pop("META_DB_KEY")
         key_expiration = None
         try:
