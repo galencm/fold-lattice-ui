@@ -1753,13 +1753,13 @@ class ScrollViewer(ScrollView):
     #def on_scroll_move(self, *args,**kwargs):
     #    print(args)
 
-    def enlarge(self, zoom_amount=2):
+    def enlarge(self, zoom_amount=1.25):
         for child in self.parent.image_grid.children:
             child.width *= zoom_amount
             child.height *= zoom_amount
             self.parent.image_grid.zoom_size = child.size
 
-    def shrink(self, zoom_amount=2):
+    def shrink(self, zoom_amount=1.25):
         for child in self.parent.image_grid.children:
             print(child.size)
             child.width /= zoom_amount
