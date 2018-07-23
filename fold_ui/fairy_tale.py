@@ -84,8 +84,8 @@ def generate_things(**kwargs):
     part_num = 0
     for part, amount, amount_start in zip(field_values, kwargs["part_part_amounts"], kwargs["part_part_amounts_start"]):
         print(part, part_num)
-        duplicates = 1
         for sequence_number in range(amount):
+            duplicates = 1
             if not (part_num, sequence_number) in to_miss:
                 if (part_num, sequence_number) in to_duplicate:
                     duplicates = 2
