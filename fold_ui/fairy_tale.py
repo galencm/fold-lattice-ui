@@ -167,6 +167,49 @@ def generate_image(text, width, height, background_color="lightgray"):
     file.seek(0)
     return file.getvalue()
 
+def ingest_things(**kwargs):
+    global binary_r
+    global redis_conn
+    if kwargs["db_host"] and kwargs["db_port"]:
+        binary_r = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"])
+        redis_conn = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"], decode_responses=True)
+    if kwargs["ingest_manifest"].endswith(".csv"):
+        import csv
+        write_to_db = []
+        with open(kwargs["ingest_manifest"], "r") as csv_file:
+            reader = csv.DictReader(csv_file)
+            for row in reader:
+                db_hash = {}
+                for k, v in row.items():
+                    key = k
+                    for source, dest in kwargs["ingest_map"]:
+                        if source == k:
+                            key = dest
+                    if k in kwargs["ingest_as_binary"]:
+                        bytes_key = "{}{}".format(kwargs["ingest_binary_prefix"], str(uuid.uuid4()))
+                        binary_r.set(bytes_key, ingest_file(v))
+                        db_hash[key] = bytes_key
+                    else:
+                        db_hash[key] = v
+
+                if db_hash:
+                    write_to_db.append(db_hash)
+
+        for to_write in write_to_db:
+            db_key = "{}{}".format(kwargs["ingest_prefix"], str(uuid.uuid4()))
+            redis_conn.hmset(db_key, to_write)
+            if kwargs["verbose"]:
+                print(db_key)
+
+def ingest_file(filename):
+    file_bytes = b''
+    try:
+        with open(filename, "rb") as f:
+            file_bytes = f.read()
+    except Exception as ex:
+        print(ex)
+    return file_bytes
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db-host",  default="127.0.0.1", help="db host ip")
@@ -192,10 +235,20 @@ def main():
     parser.add_argument("--binary-height", type=int, default=500, help="height of binary image")
     parser.add_argument("--binary-width", type=int, default=500, help="width of binary image")
 
+    parser.add_argument("--ingest-manifest", help="manifest file")
+    parser.add_argument("--ingest-as-binary", nargs="+", default=[], help="")
+    parser.add_argument("--ingest-map", action="append",  nargs=2, metavar=("source name", "destination name"), default=[], help="")
+    parser.add_argument("--ingest-prefix", default="glworb:", help="")
+    parser.add_argument("--ingest-binary-prefix", default="binary:", help="")
+
     parser.add_argument("--verbose", action="store_true", help="")
 
     args = vars(parser.parse_args())
-    generate_things(**args)
+
+    if args["ingest_manifest"] is not None:
+        ingest_things(**args)
+    else:
+        generate_things(**args)
 
 if __name__ == "__main__":
     main()
