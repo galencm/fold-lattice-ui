@@ -169,7 +169,7 @@ def generate_image(text, width, height, background_color="lightgray"):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db-host",  help="db host ip")
+    parser.add_argument("--db-host",  default="127.0.0.1", help="db host ip")
     parser.add_argument("--db-port", default=6379, help="db port")
     parser.add_argument("--db-prefix",  default="glworb:", help="db key prefix, will be follwed by uuid")
     parser.add_argument("--db-expire-in", type=int, default=None, help="db key expiration time in seconds")
