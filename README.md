@@ -108,6 +108,28 @@ fold-ui-fairytale --db-host 127.0.0.1 --db-port 6379 --db-expire-in 1000 --part-
 fold-ui-fairytale --db-host 127.0.0.1 --db-port 6665 --db-expire-in 1000 --part-part-amounts 100 100 100 --part-increment-field page_number --part-field-values part part1 part2 part3 --verbose --structure-stagger-delay 0 --structure-disorder 300 --db-del-pattern glworb:* --db-del-field part --verbose --db-expire-interval 1 --structure-missing 2 --structure-duplicate 2
 ```
 
+## Testing with boooks
+
+Boooks are booklike structures used for testing in the machinic ecosystem. They may be useful as inputs for fold-ui.
+
+Install [machinic-primitives-sources](https://github.com/galencm/machinic-primitives-sources) package with provides the cli command `primitives-generate-boook`:
+```
+pip3 install git+https://github.com/galencm/machinic-primitives-sources --user
+```
+
+Generate a collection of images and a manifest file in the `/tmp` directory.
+```
+cd /tmp
+primitives-generate-boook --title boook --section foo 10 full --section bar 10 full --section baz 10 full --manifest csv --verbose
+```
+
+Ingest the csv data and images into a glworblike format recognized by fold-ui.  The argument and parameter `--ingest-map filename binary_key` maps the csv header `filename` to a key field of `binary_key`.
+
+```
+cd /tmp
+fold-ui-fairytale --ingest-manifest boook.csv --ingest-map filename binary_key --ingest-as-binary filename --db-port 6665
+```
+
 ## Contributing
 This project uses the C4 process 
 
