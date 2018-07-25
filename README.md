@@ -127,7 +127,7 @@ Ingest the csv data and images into a glworblike format recognized by fold-ui.  
 
 ```
 cd /tmp
-fold-ui-fairytale --ingest-manifest boook.csv --ingest-map filename binary_key --ingest-as-binary filename --db-port 6665
+fold-ui-fairytale --ingest-manifest boook.csv --ingest-map filename binary_key --ingest-as-binary filename --db-port 6379
 ```
 
 ## Contributing
