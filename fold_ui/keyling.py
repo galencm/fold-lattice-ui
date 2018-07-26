@@ -75,5 +75,3 @@ def parse_lines(l, source, source_key, allow_shell_calls=False):
         if allow_shell_calls:
             print("calling: ",call)
     return source
-
-example()
