@@ -11,6 +11,7 @@ import uuid
 import io
 import random
 import sys
+import itertools
 from PIL import Image as PILImage, ImageDraw, ImageColor, ImageFont
 from ma_cli import data_models
 
@@ -186,6 +187,10 @@ def ingest_things(**kwargs):
                 if kwargs["verbose"]:
                     print("deleted: {}".format(matched_key))
 
+    cycling_fields = {}
+    if kwargs["field_cycle"]:
+        for cycle_field in kwargs["field_cycle"]:
+            cycling_fields[cycle_field[0]] = itertools.cycle(cycle_field[1:])
     if kwargs["ingest_manifest"].endswith(".csv"):
         import csv
         write_to_db = []
@@ -204,6 +209,10 @@ def ingest_things(**kwargs):
                         db_hash[key] = bytes_key
                     else:
                         db_hash[key] = v
+
+                if cycling_fields:
+                    for k, v in cycling_fields.items():
+                        db_hash[k] = next(v)
 
                 if db_hash:
                     write_to_db.append(db_hash)
@@ -239,6 +248,7 @@ def main():
     parser.add_argument("--part-binary-field", default="binary_key", help="binary field name, will contain binary key")
     parser.add_argument("--part-binary-prefix", default="binary:", help="prefix for binary key, will be followed by uuid")
     parser.add_argument("--part-field-values", nargs="+", help="head is used as field name, tail for possible values")
+    parser.add_argument("--field-cycle", action="append", nargs="+", help="field will be added to every part. possible values will cycle. head is used as field name, tail for possible values")
 
     parser.add_argument("--structure-stagger-delay", type=float, default=0, help="")
     parser.add_argument("--structure-disorder", type=int, default=0, help="")
