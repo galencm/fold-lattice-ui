@@ -15,7 +15,7 @@ Line:
 ;
 
 Expression:
-field=Field symbol=Symbol comparatee=Comparatee? | shellcall=Shell
+field=Field symbol=Symbol? comparatee=Comparatee? | shellcall=Shell
 ;
 
 Shell:
