@@ -173,6 +173,19 @@ def ingest_things(**kwargs):
     if kwargs["db_host"] and kwargs["db_port"]:
         binary_r = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"])
         redis_conn = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"], decode_responses=True)
+
+    if kwargs["db_del_pattern"]:
+        for matched_key in redis_conn.scan_iter(match=kwargs["db_del_pattern"]):
+            if kwargs["db_del_field"]:
+                if kwargs["db_del_field"] in redis_conn.hgetall(matched_key).keys():
+                    redis_conn.delete(matched_key)
+                    if kwargs["verbose"]:
+                        print("deleted: {}".format(matched_key))
+            else:
+                redis_conn.delete(matched_key)
+                if kwargs["verbose"]:
+                    print("deleted: {}".format(matched_key))
+
     if kwargs["ingest_manifest"].endswith(".csv"):
         import csv
         write_to_db = []
