@@ -53,12 +53,25 @@ def example():
         source_writes = parse_lines(l, source, source["META_DB_KEY"])
         print(source_writes)
 
-def parse_lines(l, source, source_key, allow_shell_calls=False):
+def model(text):
+    model = keyling_metamodel.model_from_str(text)
+    return model
+
+def parse_lines(model, source, source_key, allow_shell_calls=False):
     calls = []
-    for line in l.lines:
+    for line in model.lines:
         if line.shellcall:
             call = line.shellcall.call.value.replace("[*]", source_key)
             calls.append(call)
+
+        # name only
+        if not line.symbol and not line.comparatee:
+            if line.field.name in source:
+                pass
+            else:
+                return None
+
+        # name and symbol
         if line.symbol:
             symbol = line.symbol
             if symbol == "not" or symbol == "!":
