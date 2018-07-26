@@ -60,6 +60,7 @@ from ma_cli import data_models
 #sequence_status_img for thumbnails
 from fold_ui.visualizations import sequence_status, cell_preview, structure_preview
 import fold_ui.bindings as bindings
+import fold_ui.keyling as keyling
 
 r_ip, r_port = data_models.service_connection()
 binary_r = redis.StrictRedis(host=r_ip, port=r_port)
@@ -611,6 +612,26 @@ class SourcesPreview(BoxLayout):
         except KeyError:
             pass
 
+    def hook_source_added(self, source):
+        source_modified = None
+        model = self.app.session["scripts"].script_editor.scripts()
+        if model:
+            source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=False)
+
+        # write source modified by keyling
+        if source_modified:
+            key_to_write = source_modified.pop("META_DB_KEY")
+            key_expiration = None
+            try:
+                key_expiration = source_modified.pop("META_DB_TTL")
+                key_expiration = int(key_expiration)
+            except:
+                pass
+            redis_conn.hmset(key_to_write, source_modified)
+
+            if key_expiration and key_expiration > 0:
+                redis_conn.expire(key_to_write, key_expiration)
+
     def preprocess_sources(self):
         # all values come from redis as strings
         # try to convert values to int
@@ -621,6 +642,10 @@ class SourcesPreview(BoxLayout):
                     source[k] = int(v)
                 except:
                     pass
+
+        # dsl
+        for source in self.sources:
+            self.hook_source_added(source)
 
     def sample_sources(self):
         sampled_overview = {}
@@ -1018,6 +1043,49 @@ class BindingItem(BoxLayout):
         text = text.strip()
         text = text.replace(" ", "")
         return text.split(",")
+
+class ScriptEditor(BoxLayout):
+    def __init__(self, app=None, **kwargs):
+        self.app = app
+        self.script_inputs = []
+        super(ScriptEditor, self).__init__(**kwargs)
+        for widget, widget_title in [("on_add_script_input", "on_add hook"), ("run_now_script_input", "run now")]:
+            col = BoxLayout(orientation="vertical")
+            w = TextInput()
+            col.add_widget(Label(text=str(widget_title), height=30, size_hint_y=None))
+            col.add_widget(w)
+            self.script_inputs.append(w)
+            self.add_widget(col)
+        options_col = BoxLayout(orientation="vertical")
+        validate_script_button = Button(text="validate", height=60, size_hint_y=None)
+        validate_script_button.bind(on_press=lambda widget: self.validate_script())
+        allow_calls_checkbox = CheckBox()
+        options_col.add_widget(validate_script_button)
+        call_row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+        call_row.add_widget(Label(text="allow shell calls"))
+        call_row.add_widget(allow_calls_checkbox)
+        options_col.add_widget(call_row)
+        self.add_widget(options_col)
+
+    def validate_script(self):
+        for widget in self.script_inputs:
+            current_background = widget.background_color
+            try:
+                keyling.model(widget.text)
+                anim = Animation(background_color=[0,1,0,1], duration=0.5) + Animation(background_color=current_background, duration=0.5)
+                anim.start(widget)
+            except:
+                anim = Animation(background_color=[1,0,0,1], duration=0.5) + Animation(background_color=current_background, duration=0.5)
+                anim.start(widget)
+            widget.background_color = [1, 1, 1, 1]
+
+    def scripts(self):
+        model = None
+        try:
+            model = keyling.model(self.script_input.text)
+        except:
+            pass
+        return model
 
 class StructurePreview(BoxLayout):
     def __init__(self, spec_source=None, palette_source=None, source_source=None, app=None, **kwargs):
@@ -1962,6 +2030,13 @@ class FoldedInlayApp(App):
         self.root = root
         folds = AccordionContainer(orientation='horizontal', **self.kwargs)
         folds.app = self
+
+        scripts = BoxLayout()
+        script_editor = ScriptEditor(app=self)
+        scripts.add_widget(script_editor)
+        scripts.script_editor = script_editor
+        self.session["scripts"] = scripts
+
         config = BoxLayout(orientation="vertical")
         preview = BoxLayout(orientation="vertical")
         sources = BoxLayout(orientation="vertical")
@@ -1994,7 +2069,6 @@ class FoldedInlayApp(App):
         self.session['folds'] = folds
         self.session['sources'] = sources_preview
 
-
         # for now
         # create bindings_container as boxlayout
         # instead of class BindingsContainer(BoxLayout)
@@ -2018,7 +2092,8 @@ class FoldedInlayApp(App):
 
         structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview, app=self)
         preview.add_widget(structure_preview)
-        for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources"), (bindings_scroll, "bindings")]:
+        #preview.add_widget(folds)
+        for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources"), (scripts, "scripts"), (bindings_scroll, "bindings")]:
             item = TabbedPanelItem(text="{}".format(title))
             item.add_widget(top_level_item)
             root.add_widget(item)
