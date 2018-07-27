@@ -617,7 +617,6 @@ class SourcesPreview(BoxLayout):
         model = self.app.session["scripts"].script_editor.scripts()
         if model:
             source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=False)
-
         # write source modified by keyling
         if source_modified:
             key_to_write = source_modified.pop("META_DB_KEY")
@@ -627,6 +626,12 @@ class SourcesPreview(BoxLayout):
                 key_expiration = int(key_expiration)
             except:
                 pass
+
+            # remove any 'META_' prefixed keys before writing to db
+            for key in list(source_modified.keys()):
+                if key.startswith("META_"):
+                    source_modified.pop(key)
+
             redis_conn.hmset(key_to_write, source_modified)
 
             if key_expiration and key_expiration > 0:
@@ -946,6 +951,11 @@ class EditViewViewer(BoxLayout):
             key_expiration = int(key_expiration)
         except:
             pass
+
+        # remove any 'META_' prefixed keys before writing to db
+        for key in list(self.view_source.keys()):
+            if key.startswith("META_"):
+                self.view_source.pop(key)
         redis_conn.hmset(key_to_write, self.view_source)
 
         if key_expiration and key_expiration > 0:
