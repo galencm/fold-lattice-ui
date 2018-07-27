@@ -37,16 +37,17 @@ def generate_things(**kwargs):
         redis_conn = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"], decode_responses=True)
 
     if kwargs["db_del_pattern"]:
-        for matched_key in redis_conn.scan_iter(match=kwargs["db_del_pattern"]):
-            if kwargs["db_del_field"]:
-                if kwargs["db_del_field"] in redis_conn.hgetall(matched_key).keys():
+        for db_del_pattern in kwargs["db_del_pattern"]:
+            for matched_key in redis_conn.scan_iter(match=db_del_pattern):
+                if kwargs["db_del_field"]:
+                    if kwargs["db_del_field"] in redis_conn.hgetall(matched_key).keys():
+                        redis_conn.delete(matched_key)
+                        if kwargs["verbose"]:
+                            print("deleted: {}".format(matched_key))
+                else:
                     redis_conn.delete(matched_key)
                     if kwargs["verbose"]:
                         print("deleted: {}".format(matched_key))
-            else:
-                redis_conn.delete(matched_key)
-                if kwargs["verbose"]:
-                    print("deleted: {}".format(matched_key))
 
     try:
         field_name, *field_values = kwargs["part_field_values"]
@@ -176,16 +177,17 @@ def ingest_things(**kwargs):
         redis_conn = redis.StrictRedis(host=kwargs["db_host"], port=kwargs["db_port"], decode_responses=True)
 
     if kwargs["db_del_pattern"]:
-        for matched_key in redis_conn.scan_iter(match=kwargs["db_del_pattern"]):
-            if kwargs["db_del_field"]:
-                if kwargs["db_del_field"] in redis_conn.hgetall(matched_key).keys():
+        for db_del_pattern in kwargs["db_del_pattern"]:
+            for matched_key in redis_conn.scan_iter(match=db_del_pattern):
+                if kwargs["db_del_field"]:
+                    if kwargs["db_del_field"] in redis_conn.hgetall(matched_key).keys():
+                        redis_conn.delete(matched_key)
+                        if kwargs["verbose"]:
+                            print("deleted: {}".format(matched_key))
+                else:
                     redis_conn.delete(matched_key)
                     if kwargs["verbose"]:
                         print("deleted: {}".format(matched_key))
-            else:
-                redis_conn.delete(matched_key)
-                if kwargs["verbose"]:
-                    print("deleted: {}".format(matched_key))
 
     cycling_fields = {}
     if kwargs["field_cycle"]:
@@ -238,7 +240,7 @@ def main():
     parser.add_argument("--db-port", default=6379, help="db port")
     parser.add_argument("--db-prefix",  default="glworb:", help="db key prefix, will be follwed by uuid")
     parser.add_argument("--db-expire-in", type=int, default=None, help="db key expiration time in seconds")
-    parser.add_argument("--db-del-pattern", help="delete a pattern, will run before any other commands")
+    parser.add_argument("--db-del-pattern", action="append", help="delete a pattern, will run before any other commands")
     parser.add_argument("--db-del-field", help="from --db-del-pattern pattern matches, only delete if specified field exists")
     parser.add_argument("--db-expire-interval", type=int, default=0, help="db key expiration interval")
 
