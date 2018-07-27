@@ -65,7 +65,7 @@ def parse_lines(model, source, source_key, allow_shell_calls=False):
             calls.append(call)
 
         # name only
-        if not line.symbol and not line.comparatee:
+        if not line.symbol and not line.comparatee and not line.shellcall:
             if line.field.name in source:
                 pass
             else:
