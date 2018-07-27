@@ -31,28 +31,6 @@ keyling_metamodel = metamodel_from_file(os.path.join(path, 'keyling.tx'))
 #
 # strings are <"some string">  instead of <some string> until model is improved
 
-
-
-def example():
-
-    example_keyling_string = """
-    (
-    [rotated] not,
-    [device] == <"capture1">,
-    $(<"img-pipe rotate 90 [*]">),
-    [rotated] = 90,
-    )
-    """
-
-    l = keyling_metamodel.model_from_str(example_keyling_string)
-
-    sources = [{"device" : "capture1", "META_DB_KEY" : "foo:1"},
-               {"device" : "capture2", "rotated": 90, "META_DB_KEY" : "foo:2"}]
-
-    for source in sources:
-        source_writes = parse_lines(l, source, source["META_DB_KEY"])
-        print(source_writes)
-
 def model(text):
     model = keyling_metamodel.model_from_str(text)
     return model
@@ -100,3 +78,36 @@ def parse_lines(model, source, source_key, allow_shell_calls=False):
         if allow_shell_calls:
             print("calling: ",call)
     return source
+
+def example():
+
+    example_keyling_strings = [
+    """
+    (
+    [rotated] not,
+    [device] == <"capture1">,
+    $(<"img-pipe rotate 90 [*]">),
+    [rotated] = 90,
+    )
+    """,
+
+    """
+    (
+    [device] == <"capture1">,
+    [equality] = 1,
+    )
+    """
+    ]
+
+    for script in example_keyling_strings:
+        m = model(script)
+
+        sources = [{"device" : "capture1", "META_DB_KEY" : "foo:1"},
+                   {"device" : "capture2", "rotated": 90, "META_DB_KEY" : "foo:2"}]
+
+        for source in sources:
+            print(source)
+            print(script)
+            source_writes = parse_lines(m, source, source["META_DB_KEY"])
+            print(source_writes)
+            print("\n\n\n")
