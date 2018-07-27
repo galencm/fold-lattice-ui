@@ -81,6 +81,18 @@ def parse_lines(model, source, source_key, allow_shell_calls=False):
                             return None
                     except KeyError:
                         pass
+            elif symbol == "==":
+                if not line.field.name in source:
+                    return None
+
+                try:
+                    comparatee = line.comparatee.value
+                except:
+                    comparatee = line.comparatee
+                if source[line.field.name] == comparatee:
+                    pass
+                else:
+                    return None
             elif symbol == "=":
                 source.update({line.field.name : line.comparatee})
 
