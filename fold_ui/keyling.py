@@ -6,6 +6,7 @@
 
 from textx.metamodel import metamodel_from_file
 import os
+import subprocess
 
 path = os.path.dirname(os.path.realpath(__file__))
 keyling_metamodel = metamodel_from_file(os.path.join(path, 'keyling.tx'))
@@ -77,6 +78,7 @@ def parse_lines(model, source, source_key, allow_shell_calls=False):
     for call in calls:
         if allow_shell_calls:
             print("calling: ",call)
+            subprocess.call(call.split(" "))
     return source
 
 def example():
