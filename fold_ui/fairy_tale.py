@@ -219,11 +219,25 @@ def ingest_things(**kwargs):
                 if db_hash:
                     write_to_db.append(db_hash)
 
-        for to_write in write_to_db:
-            db_key = "{}{}".format(kwargs["ingest_prefix"], str(uuid.uuid4()))
-            redis_conn.hmset(db_key, to_write)
-            if kwargs["verbose"]:
-                print(db_key)
+        to_miss = []
+        while len(to_miss) < kwargs["structure_missing"]:
+            to_miss.append(random.randint(0, len(write_to_db) - 1))
+
+        # need to duplicate binary keys for ingest_as_binary
+        to_duplicate = []
+        while len(to_duplicate) < kwargs["structure_duplicate"]:
+            to_duplicate.append(random.randint(0, len(write_to_db) - 1))
+
+        for write_num, to_write in enumerate(write_to_db):
+            if write_num in to_miss:
+                to_miss.remove(write_num)
+                if kwargs["verbose"]:
+                    print("missing: ", write_num)
+            else:
+                db_key = "{}{}".format(kwargs["ingest_prefix"], str(uuid.uuid4()))
+                redis_conn.hmset(db_key, to_write)
+                if kwargs["verbose"]:
+                    print(db_key)
 
 def ingest_file(filename):
     file_bytes = b''
