@@ -840,6 +840,78 @@ class ViewSelector(BoxLayout):
     def focused_config_hash(self):
         return self.viewers[self.selected_viewer_index].config_hash
 
+class ScriptViewViewerConfig(BoxLayout):
+    def __init__(self, source_source, **kwargs):
+        self.source_source = source_source
+        super(ScriptViewViewerConfig, self).__init__(**kwargs)
+        for param in ["allow shell calls", "db write after run"]:
+            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+            row.add_widget(Label(text=str(param)))
+            row.add_widget(CheckBox())
+            self.add_widget(row)
+
+    # input for alias scripts that become button in ScriptViewViewer
+
+    @property
+    def config_hash(self):
+        return "{}".format("")
+
+    def configured(self):
+        class ConfiguredScriptViewViewer(ScriptViewViewer):
+            # view_source kwarg will be supplied in fold
+            __init__ = functools.partialmethod(ScriptViewViewer.__init__, config_hash=self.config_hash, source_source=self.source_source)
+        return ConfiguredScriptViewViewer
+
+class ScriptViewViewer(BoxLayout):
+    def __init__(self, view_source=None, config_hash=None, source_source=None, **kwargs):
+        self.orientation = "vertical"
+        self.config_hash = config_hash
+        self.view_source = view_source
+        self.source_source = source_source
+        self.buttons_container = BoxLayout(orientation="vertical")
+        self.run_script_this_button = Button(text="run script on this", size_hint_y=None, height=30)
+        self.run_script_all_button = Button(text="run script on all", size_hint_y=None, height=30)
+        self.script_input = TextInput(hint_text="()", multiline=True, size_hint_y=1)
+        self.run_script_this_button.bind(on_press=lambda widget: self.run_script(self.script_input.text, widget=self.script_input))
+        self.run_script_all_button.bind(on_press=lambda widget: self.run_script(self.script_input.text, widget=self.script_input, run_on_all=True))
+        super(ScriptViewViewer, self).__init__(**kwargs)
+        self.buttons_container.add_widget(self.script_input)
+        self.buttons_container.add_widget(self.run_script_this_button)
+        self.buttons_container.add_widget(self.run_script_all_button)
+        self.add_widget(self.buttons_container)
+
+    def run_script(self, script, widget=None, run_on_all=False):
+        if widget:
+            current_background = widget.background_color
+            model = None
+            source_modified = None
+            try:
+                model = keyling.model(script)
+                anim = Animation(background_color=[0,1,0,1], duration=0.5) + Animation(background_color=current_background, duration=0.5)
+                anim.start(widget)
+            except:
+                anim = Animation(background_color=[1,0,0,1], duration=0.5) + Animation(background_color=current_background, duration=0.5)
+                anim.start(widget)
+
+            if model:
+                if run_on_all:
+                    for source_num, source in enumerate(self.source_source.sources):
+                        source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=False)
+                        self.source_source.sources[source_num] = source_modified
+                else:
+                    source_modified = keyling.parse_lines(model, self.view_source, self.view_source["META_DB_KEY"], allow_shell_calls=False)
+                    self.view_source = source_modified
+
+            widget.background_color = [1, 1, 1, 1]
+
+    def scripts(self):
+        model = None
+        try:
+            model = keyling.model(self.script_input.text)
+        except:
+            pass
+        return model
+
 class EditViewViewerConfig(BoxLayout):
     def __init__(self, source_source, **kwargs):
         self.source_source = source_source
