@@ -345,7 +345,7 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
         img.close()
         file.seek(0)
 
-        return (filename, file)
+        return (filename, file, [cell[1] for cell in cells])
 
 def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, margins=None, default_margin=5, regions=None, palette=None, background_color=(155, 155, 155, 255), overlay_placeholders=False, textures=None, filename=None):
 

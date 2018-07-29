@@ -36,11 +36,17 @@ def model(text):
     model = keyling_metamodel.model_from_str(text)
     return model
 
-def parse_lines(model, source, source_key, allow_shell_calls=False):
+def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=None):
     calls = []
+    if env_vars is None:
+        env_vars = {}
+
     for line in model.lines:
         if line.shellcall:
             call = line.shellcall.call.value.replace("[*]", source_key)
+            # substitute env vars
+            for var, var_value in env_vars.items():
+                call = call.replace(str(var), str(var_value))
             calls.append(call)
 
         # name only

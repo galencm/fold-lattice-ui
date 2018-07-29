@@ -492,6 +492,7 @@ class SourcesPreview(BoxLayout):
         self.app = app
         self.samplings = 3
         self.remaining_samplings = self.samplings
+        self.sources_structured = []
         super(SourcesPreview, self).__init__(**kwargs)
         self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if c[0].endswith("ViewViewer")]
         self.scheduled_poll = None
@@ -545,6 +546,23 @@ class SourcesPreview(BoxLayout):
         self.add_widget(preview)
         self.add_widget(bottom)
         self.get_sources()
+
+    @property
+    def env_vars(self):
+        env_vars = { "$DB_PORT" :  redis_conn.connection_pool.connection_kwargs["port"],
+                     "$DB_HOST" :  redis_conn.connection_pool.connection_kwargs["host"],
+                     "$SOURCES" : self.sources_key,
+                     "[**]" : self.sources_key,
+                     "$VIEWER_KEY" : ""
+                   }
+        return env_vars
+
+    @property
+    def sources_key(self):
+        sources_key = "structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
+        redis_conn.delete(sources_key)
+        redis_conn.rpush(sources_key, *[source["META_DB_KEY"] for source in self.sources_structured])
+        return sources_key
 
     def change_db_settings(self, widget=None):
         global r_ip
@@ -899,7 +917,7 @@ class ScriptViewViewer(BoxLayout):
                         source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=False)
                         self.source_source.sources[source_num] = source_modified
                 else:
-                    source_modified = keyling.parse_lines(model, self.view_source, self.view_source["META_DB_KEY"], allow_shell_calls=False)
+                    source_modified = keyling.parse_lines(model, self.view_source, self.view_source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars)
                     self.view_source = source_modified
 
             widget.background_color = [1, 1, 1, 1]
@@ -1285,10 +1303,11 @@ class StructurePreview(BoxLayout):
 
         # lru cache may be useful here, but list is unhashable
         # and would have to be changed
-        preview = structure_preview(sources, self.spec_source(), self.palette_source(), **parameters)[1]
+        _, preview, cells = structure_preview(sources, self.spec_source(), self.palette_source(), **parameters)
         self.preview_image.texture = CoreImage(preview, ext="jpg", keep_data=True).texture
         if create_folds is True:
             self.app.session["folds"].create_folds()
+        self.app.session["sources"].sources_structured = cells
 
     def generate_structure_columns(self, parameters=None):
         self.update_parameter_widgets()
