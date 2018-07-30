@@ -189,6 +189,24 @@ def ingest_things(**kwargs):
                     if kwargs["verbose"]:
                         print("deleted: {}".format(matched_key))
 
+    to_mislabel_span_integer = {}
+    if kwargs["ingest_mislabel_span_integer"]:
+        for field_name, span_amount, span_range in kwargs["ingest_mislabel_span_integer"]:
+            if not field_name in to_mislabel_span_integer:
+                to_mislabel_span_integer[field_name] = []
+            span_start = random.randint(0, int(span_range))
+            # list is [start position, amount (to decrement), span_start_value]
+            to_mislabel_span_integer[field_name] = [span_start, int(span_amount), 0]
+
+    to_mislabel_span_badstr = {}
+    if kwargs["ingest_mislabel_span_badstr"]:
+        for field_name, span_amount, span_range in kwargs["ingest_mislabel_span_badstr"]:
+            if not field_name in to_mislabel_span_badstr:
+                to_mislabel_span_badstr[field_name] = []
+            span_start = random.randint(0, int(span_range))
+            # list is [start position, amount (to decrement), span_start_value]
+            to_mislabel_span_badstr[field_name] = [span_start, int(span_amount), 0]
+
     cycling_fields = {}
     if kwargs["field_cycle"]:
         for cycle_field in kwargs["field_cycle"]:
@@ -211,6 +229,33 @@ def ingest_things(**kwargs):
                         db_hash[key] = bytes_key
                     else:
                         db_hash[key] = v
+
+                    if key in to_mislabel_span_badstr:
+                        try:
+                            if to_mislabel_span_badstr[key][0] == int(v) and to_mislabel_span_badstr[key][1] > 0:
+                                badstr = "".join(random.choice(";:,.{}@#!()^\/`[]+-|~`1234567890") for _ in range(random.randint(1,3)))
+                                db_hash[key] = badstr
+                                to_mislabel_span_badstr[key][1] -= 1
+                                to_mislabel_span_badstr[key][0] += 1
+                                if kwargs["verbose"]:
+                                    print("mislabeled: {}:{} to {}".format(k, v, badstr))
+
+                        except ValueError:
+                            pass
+
+                    if key in to_mislabel_span_integer:
+                        try:
+                            if to_mislabel_span_integer[key][0] == int(v) and to_mislabel_span_integer[key][1] > 0:
+                                if to_mislabel_span_integer[key][2] == 0:
+                                    to_mislabel_span_integer[key][2] = int(v) - 3
+                                db_hash[key] = to_mislabel_span_integer[key][2]
+                                to_mislabel_span_integer[key][1] -= 1
+                                to_mislabel_span_integer[key][2] += 1
+                                to_mislabel_span_integer[key][0] += 1
+                                if kwargs["verbose"]:
+                                    print("mislabeled: {}:{} to {}".format(k, v, to_mislabel_span_integer[key][2]))
+                        except ValueError:
+                            pass
 
                 if cycling_fields:
                     for k, v in cycling_fields.items():
@@ -279,6 +324,8 @@ def main():
     parser.add_argument("--ingest-map", action="append",  nargs=2, metavar=("source name", "destination name"), default=[], help="")
     parser.add_argument("--ingest-prefix", default="glworb:", help="")
     parser.add_argument("--ingest-binary-prefix", default="binary:", help="")
+    parser.add_argument("--ingest-mislabel-span-integer", action="append",  nargs=3, metavar=("field name", "span amount", "span max range"), default=[], help="mislabel span of a field")
+    parser.add_argument("--ingest-mislabel-span-badstr", action="append",  nargs=3, metavar=("field name", "span amount", "span max range"), default=[], help="mislabel span of a field")
 
     parser.add_argument("--verbose", action="store_true", help="")
 
