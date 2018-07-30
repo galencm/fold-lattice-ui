@@ -1308,6 +1308,8 @@ class StructurePreview(BoxLayout):
         if create_folds is True:
             self.app.session["folds"].create_folds()
         self.app.session["sources"].sources_structured = cells
+        # call sources_key to write to db
+        self.app.session["sources"].sources_key
 
     def generate_structure_columns(self, parameters=None):
         self.update_parameter_widgets()
