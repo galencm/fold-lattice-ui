@@ -561,7 +561,16 @@ class SourcesPreview(BoxLayout):
     def sources_key(self):
         sources_key = "structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
         redis_conn.delete(sources_key)
-        redis_conn.rpush(sources_key, *[source["META_DB_KEY"] for source in self.sources_structured])
+        source_keys = []
+        try:
+            source_keys = [source["META_DB_KEY"] for source in self.sources_structured if source]
+        except TypeError:
+            pass
+        except KeyError:
+            pass
+        if source_keys:
+            redis_conn.rpush(sources_key, *source_keys)
+
         return sources_key
 
     def change_db_settings(self, widget=None):
@@ -913,9 +922,12 @@ class ScriptViewViewer(BoxLayout):
 
             if model:
                 if run_on_all:
-                    for source_num, source in enumerate(self.source_source.sources):
-                        source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=False)
-                        self.source_source.sources[source_num] = source_modified
+                    for source_num, source in enumerate(self.source_source.sources_structured):
+                        if source:
+                            source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars)
+                            print(source_num, source, source_modified)
+                            if source_modified:
+                                self.source_source.sources_structured[source_num] = source_modified
                 else:
                     source_modified = keyling.parse_lines(model, self.view_source, self.view_source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars)
                     self.view_source = source_modified

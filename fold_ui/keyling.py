@@ -84,7 +84,7 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
     for call in calls:
         if allow_shell_calls:
             print("calling: ",call)
-            subprocess.call(call.split(" "))
+            print(subprocess.check_output(call.split(" ")))
     return source
 
 def example():
