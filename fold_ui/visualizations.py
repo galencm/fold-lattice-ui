@@ -11,6 +11,7 @@ import io
 import uuid
 import math
 from collections import OrderedDict
+from PIL import Image as PImage
 
 @functools.lru_cache()
 def calculate_fontsize(text, fontsize, width):
@@ -492,6 +493,14 @@ def cell_preview(spec, cell=None, meta=None, width=60, height=120, cells=1, marg
                 for width_step in range(x1, x2, bar_width * 4):
                     draw.rectangle((width_step, 0, width_step + bar_width, height), fill="white")
 
+        try:
+            if spec.overlay_key:
+                i = PImage.open(bimg_resized(cell[spec.overlay_key], int(width/2), spec.binary_db_connection))
+                img.paste(i)
+                i.close()
+        except Exception as ex:
+            pass
+
         for meta_call in meta_calls:
             meta_call()
 
@@ -614,3 +623,16 @@ def sequence_status(steps, filled, filename, width=60, height=120, step_offset=0
     status_tile.save(image_filename)
     status_tile.close()
     return image_filename
+
+def bimg_resized(uuid, new_size, binary_r):
+    contents = binary_r.get(uuid)
+    f = io.BytesIO()
+    f = io.BytesIO(contents)
+    img = PImage.open(f)
+    img.thumbnail((new_size, new_size))
+    extension = img.format
+    file = io.BytesIO()
+    img.save(file, extension)
+    img.close()
+    file.seek(0)
+    return file

@@ -228,6 +228,8 @@ class CellSpec(object):
     spec_for = attr.ib(default=None)
     # layout field to use for classification
     primary_layout_field = attr.ib(default="center")
+    overlay_key = attr.ib(default="")
+    binary_db_connection = attr.ib(default=None)
 
     @property
     def primary_layout_key(self):
@@ -427,6 +429,14 @@ class CellSpecItem(BoxLayout):
                 similar[meta_option].append(meta_toggle)
 
             rows.add_widget(row)
+        self.image_overlay = TextInput(text=self.cell_spec.overlay_key, multiline=False, height=30, size_hint_y=None)
+        overlay = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+        overlay.add_widget(Label(text="image overlay field"))
+        overlay.add_widget(self.image_overlay)
+        rows.add_widget(overlay)
+        self.image_overlay.bind(on_text_validate=lambda widget: [setattr(self.cell_spec, "overlay_key", widget.text), self.generate_preview()])
+        #image_overlay.preload = sorted(list(self.parent.app.session['sources'].source_fields))
+
         self.add_widget(rows)
 
         for w in meta_widgets:
@@ -471,6 +481,7 @@ class CellSpecGenerator(BoxLayout):
     def create_cell_spec(self, widget, cell_spec_args=None):
         if cell_spec_args is None:
             cell_spec_args = {}
+        cell_spec_args.update({"binary_db_connection" : binary_r})
         cell_spec = CellSpecItem(CellSpec(palette=self.palette_source, amount=self.amount_source, **cell_spec_args))
         self.cell_spec_container.add_cell_spec(cell_spec)
 
@@ -2254,6 +2265,7 @@ class FoldedInlayApp(App):
             cellspec =  etree.Element("cellspec")
             cellspec.set("spec_for", cell_spec.spec_for)
             cellspec.set("primary_layout_field", cell_spec.primary_layout_field)
+            cellspec.set("overlay_key", cell_spec.overlay_key)
             layout_map =  etree.Element("map", name="layout_map")
             for k, v in cell_spec.cell_layout_map.items():
                 layout_map.append(etree.Element("element", name=str(k), value=str(v)))
@@ -2345,6 +2357,10 @@ class FoldedInlayApp(App):
                         for cellspec in session.xpath('//cellspec'):
                             cellspec_args = {}
                             cellspec_args["spec_for"] = str(cellspec.xpath("./@spec_for")[0])
+                            try:
+                                cellspec_args["overlay_key"] = str(cellspec.xpath("./@overlay_key")[0])
+                            except IndexError:
+                                pass
                             cellspec_args["primary_layout_field"] = str(cellspec.xpath("./@primary_layout_field")[0])
                             for cellspecmap in cellspec.xpath('.//map'):
                                 mapname = str(cellspecmap.xpath("./@name")[0])
