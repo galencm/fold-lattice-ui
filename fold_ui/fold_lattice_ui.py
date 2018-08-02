@@ -504,6 +504,7 @@ class SourcesPreview(BoxLayout):
         self.samplings = 3
         self.remaining_samplings = self.samplings
         self.sources_structured = []
+        self.stored_env_vars = {}
         super(SourcesPreview, self).__init__(**kwargs)
         self.viewerclasses = [ c for c in inspect.getmembers(sys.modules[__name__], inspect.isclass) if c[0].endswith("ViewViewer")]
         self.scheduled_poll = None
@@ -566,7 +567,11 @@ class SourcesPreview(BoxLayout):
                      "[**]" : self.sources_key,
                      "$VIEWER_KEY" : ""
                    }
+        env_vars.update(self.stored_env_vars)
         return env_vars
+
+    def set_env_var(self, key, value):
+        self.stored_env_vars[key] = value
 
     @property
     def sources_key(self):
@@ -965,18 +970,19 @@ class EditViewViewerConfig(BoxLayout):
     def configured(self):
         class ConfiguredEditViewViewer(EditViewViewer):
             # view_source kwarg will be supplied in fold
-            __init__ = functools.partialmethod(EditViewViewer.__init__, config_hash=self.config_hash)
+            __init__ = functools.partialmethod(EditViewViewer.__init__, config_hash=self.config_hash, source_source=self.source_source)
         return ConfiguredEditViewViewer
 
 class EditViewViewer(BoxLayout):
-    def __init__(self, view_source=None, config_hash=None, **kwargs):
+    def __init__(self, view_source=None, config_hash=None, source_source=None, **kwargs):
         self.orientation = "vertical"
         # how to handle view_source update?
         # so that correct fields are displayed
         # different from a configuration update
         self.config_hash = config_hash
         self.view_source = view_source
-        self.buttons_container = BoxLayout(orientation="vertical")
+        self.source_source = source_source
+        self.buttons_container = BoxLayout(orientation="vertical", height=80, size_hint_y=None)
         self.write_fields_button = Button(text="write fields")
         self.write_fields_button.bind(on_press=self.write_fields)
         self.add_field_input = TextInput(hint_text="add field", multiline=False)
@@ -1028,17 +1034,35 @@ class EditViewViewer(BoxLayout):
         self.field_widgets = []
         for field, value in self.view_source.items():
             row = BoxLayout()
-            row.add_widget(Label(text=str(field)))
+            a = Label(text=str(field))
+            row.add_widget(a)
             # dropdown?
-            field_input = TextInput(text=str(value), multiline=False)
+            field_input = TextInput(text=str(value), multiline=False, height=a.height, font_size=a.font_size/1.5)
             field_input.field_for = str(field)
             field_input.bind(on_text_validate=lambda widget, field=field, value=value: self.update_field(field, widget.text, widget=widget))
+            field_highlight_button = Button(text="$", size_hint_x=.1)
+            field_highlight_button.bind(on_press=lambda widget, field=field: [self.source_source.set_env_var("$SELECTED_KEY", field), self.highlight_field()])
             field_remove_button = Button(text="X", size_hint_x=.1)
             field_remove_button.bind(on_press=lambda widget, field=field: self.remove_field(field))
             row.add_widget(field_input)
+            row.highlight = field_highlight_button
+            row.field = field
+            row.add_widget(Label(text=str(type(value))))
+            row.add_widget(field_highlight_button)
             row.add_widget(field_remove_button)
             self.fields_container.add_widget(row)
             self.field_widgets.append(field_input)
+        self.highlight_field()
+
+    def highlight_field(self):
+        for widget in self.fields_container.children:
+            try:
+                if widget.field == self.source_source.env_vars["$SELECTED_KEY"]:
+                    widget.highlight.background_color = [0, 1, 0, 1]
+                else:
+                    widget.highlight.background_color = [1, 1, 1, 1]
+            except:
+                pass
 
     def update_field(self, field, value, widget=None):
         if widget:
