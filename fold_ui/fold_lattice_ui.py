@@ -35,6 +35,7 @@ from kivy.uix.label import Label
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.dropdown import DropDown
 from kivy.uix.popup import Popup
@@ -922,6 +923,10 @@ class ScriptViewViewer(BoxLayout):
         self.buttons_container.add_widget(self.run_script_this_button)
         self.buttons_container.add_widget(self.run_script_all_button)
         self.add_widget(self.buttons_container)
+        self.env_container = GridLayout(cols=1)
+        self.add_widget(self.env_container)
+        self.env_vars_display()
+
 
     def run_script(self, script, widget=None, run_on_all=False):
         if widget:
@@ -957,6 +962,16 @@ class ScriptViewViewer(BoxLayout):
         except:
             pass
         return model
+
+    def env_vars_display(self):
+        self.env_container.clear_widgets()
+        ev =  self.source_source.env_vars
+        ev.update({"[*]" : self.view_source["META_DB_KEY"]})
+        for var_name, var_value in ev.items():
+            row = BoxLayout()
+            row.add_widget(Label(text=str(var_name)))
+            row.add_widget(Label(text=str(var_value)))
+            self.env_container.add_widget(row)
 
 class EditViewViewerConfig(BoxLayout):
     def __init__(self, source_source, **kwargs):
