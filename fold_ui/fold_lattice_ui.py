@@ -2487,89 +2487,114 @@ class FoldedInlayApp(App):
         project_xml = {}
 
         for file in files_to_restore:
-            if os.path.isfile(file):
+            self.load_xml(file)
+
+    def load_xml(self, file, field=None):
+        xml = None
+        # if not isfile, treat as db key and try to
+        # retrieve xml
+        if not os.path.isfile(file):
+            if field is None:
+                # get directly, treating file as key
                 try:
-                    xml = etree.parse(file)
-                    print("restoring {}".format(xml))
-                    for session in xml.xpath('//session'):
-                        # viewerconfigs
-                        for config_widget in self.session["sources"].view_selector.view_configs:
+                    xml = etree.fromstring(redis_conn.get(file))
+                except etree.XMLSyntaxError as ex:
+                    print("cannot parse xml from key: {}, ignoring".format(file))
+                except ValueError:
+                    pass
+            else:
+                try:
+                    xml = etree.fromstring(redis_conn.hget(file, field))
+                except etree.XMLSyntaxError as ex:
+                    print("cannot parse xml from key: {}, ignoring".format(file))
+                except ValueError:
+                    pass
+        elif os.path.isfile(file):
+            try:
+                xml = etree.parse(file)
+                print("restoring {}".format(xml))
+
+            except etree.XMLSyntaxError as ex:
+                print("cannot parse xml from file: {}, ignoring".format(file))
+
+        if xml:
+            for session in xml.xpath('//session'):
+                # viewerconfigs
+                for config_widget in self.session["sources"].view_selector.view_configs:
+                    try:
+                        config_widget.load(session)
+                    except Exception as ex:
+                        print(ex)
+                        pass
+                # restore palettes
+                for palette in session.xpath('//palette'):
+                    palette_args = {}
+                    palette_args["name"] = str(palette.xpath("./@name")[0])
+                    palette_args["color"] = colour.Color(str(palette.xpath("./@color")[0]))
+                    palette_args["order_value"] = float(palette.xpath("./@order_value")[0])
+                    palette_thing = PaletteThing(**palette_args)
+                    for possibility in palette.xpath('.//possibility'):
+                        possibility_args = {}
+                        possibility_args["color"] = colour.Color(str(possibility.xpath("./@color")[0]))
+                        possibility_args["name"] = str(possibility.xpath("./@name")[0])
+                        possibility_args["rough_amount"] = int(float(possibility.xpath("./@rough_amount")[0]))
+                        palette_thing.possibilities.append(ColorMapThing(**possibility_args))
+                    palette_thing = PaletteThingItem(palette_thing)
+                    self.session['palette'].add_palette_thing(palette_thing)
+
+                # restore cellspecs
+                for cellspec in session.xpath('//cellspec'):
+                    cellspec_args = {}
+                    cellspec_args["spec_for"] = str(cellspec.xpath("./@spec_for")[0])
+                    try:
+                        cellspec_args["overlay_key"] = str(cellspec.xpath("./@overlay_key")[0])
+                    except IndexError:
+                        pass
+                    cellspec_args["primary_layout_field"] = str(cellspec.xpath("./@primary_layout_field")[0])
+                    for cellspecmap in cellspec.xpath('.//map'):
+                        mapname = str(cellspecmap.xpath("./@name")[0])
+                        cellspec_args["cell_"+mapname] = {}
+                        name = None
+                        value = None
+                        for element in cellspecmap:# cellspecmap.xpath('.//element'): #cellspecmap: #cellspecmap.xpath('//element'):
+                            name = str(element.xpath("./@name")[0])
                             try:
-                                config_widget.load(session)
-                            except Exception as ex:
-                                print(ex)
-                                pass
-                        # restore palettes
-                        for palette in session.xpath('//palette'):
-                            palette_args = {}
-                            palette_args["name"] = str(palette.xpath("./@name")[0])
-                            palette_args["color"] = colour.Color(str(palette.xpath("./@color")[0]))
-                            palette_args["order_value"] = float(palette.xpath("./@order_value")[0])
-                            palette_thing = PaletteThing(**palette_args)
-                            for possibility in palette.xpath('.//possibility'):
-                                possibility_args = {}
-                                possibility_args["color"] = colour.Color(str(possibility.xpath("./@color")[0]))
-                                possibility_args["name"] = str(possibility.xpath("./@name")[0])
-                                possibility_args["rough_amount"] = int(float(possibility.xpath("./@rough_amount")[0]))
-                                palette_thing.possibilities.append(ColorMapThing(**possibility_args))
-                            palette_thing = PaletteThingItem(palette_thing)
-                            self.session['palette'].add_palette_thing(palette_thing)
-
-                        # restore cellspecs
-                        for cellspec in session.xpath('//cellspec'):
-                            cellspec_args = {}
-                            cellspec_args["spec_for"] = str(cellspec.xpath("./@spec_for")[0])
-                            try:
-                                cellspec_args["overlay_key"] = str(cellspec.xpath("./@overlay_key")[0])
-                            except IndexError:
-                                pass
-                            cellspec_args["primary_layout_field"] = str(cellspec.xpath("./@primary_layout_field")[0])
-                            for cellspecmap in cellspec.xpath('.//map'):
-                                mapname = str(cellspecmap.xpath("./@name")[0])
-                                cellspec_args["cell_"+mapname] = {}
-                                name = None
-                                value = None
-                                for element in cellspecmap:# cellspecmap.xpath('.//element'): #cellspecmap: #cellspecmap.xpath('//element'):
-                                    name = str(element.xpath("./@name")[0])
-                                    try:
-                                        value = str(element.xpath("./@value")[0])
-                                        try:
-                                            value = int(value)
-                                        except:
-                                            pass
-                                        if value == "None":
-                                            value = None
-                                        cellspec_args["cell_"+mapname][name] = value
-                                    except IndexError as ex:
-                                        if not name in cellspec_args["cell_"+mapname]:
-                                            cellspec_args["cell_"+mapname][name] = []
-                                        if not cellspec_args["cell_"+mapname][name]:
-                                            cellspec_args["cell_"+mapname][name] = []
-
-                                        for item in element:
-                                            item_name =  str(item.xpath("./@name")[0])
-                                            item_area =  str(item.xpath("./@area")[0])
-                                            if not (item_area, item_name) in cellspec_args["cell_"+mapname][name]:
-                                                cellspec_args["cell_"+mapname][name].append((item_area, item_name))
-                            # use generator
-                            self.session['cell_spec_generator'].create_cell_spec(None, cell_spec_args=cellspec_args)
-
-                        # restore structure parameters
-                        for structure in session.xpath('//structure'):
-                            for attrib in structure.attrib:
-                                value = structure.get(attrib)
+                                value = str(element.xpath("./@value")[0])
                                 try:
                                     value = int(value)
                                 except:
                                     pass
-                                if value == "True":
-                                    value = True
-                                elif value == "False":
-                                    value = False
-                                self.session['structure'].parameters[attrib] = value
-                            self.session['structure'].generate_structure_preview(parameters=self.session['structure'].parameters)
-                except etree.XMLSyntaxError as ex:
-                    print("cannot parse xml from file: {}, ignoring".format(file))
+                                if value == "None":
+                                    value = None
+                                cellspec_args["cell_"+mapname][name] = value
+                            except IndexError as ex:
+                                if not name in cellspec_args["cell_"+mapname]:
+                                    cellspec_args["cell_"+mapname][name] = []
+                                if not cellspec_args["cell_"+mapname][name]:
+                                    cellspec_args["cell_"+mapname][name] = []
+
+                                for item in element:
+                                    item_name =  str(item.xpath("./@name")[0])
+                                    item_area =  str(item.xpath("./@area")[0])
+                                    if not (item_area, item_name) in cellspec_args["cell_"+mapname][name]:
+                                        cellspec_args["cell_"+mapname][name].append((item_area, item_name))
+                    # use generator
+                    self.session['cell_spec_generator'].create_cell_spec(None, cell_spec_args=cellspec_args)
+
+                # restore structure parameters
+                for structure in session.xpath('//structure'):
+                    for attrib in structure.attrib:
+                        value = structure.get(attrib)
+                        try:
+                            value = int(value)
+                        except:
+                            pass
+                        if value == "True":
+                            value = True
+                        elif value == "False":
+                            value = False
+                        self.session['structure'].parameters[attrib] = value
+                    self.session['structure'].generate_structure_preview(parameters=self.session['structure'].parameters)
 
 def main():
     parser = argparse.ArgumentParser()
