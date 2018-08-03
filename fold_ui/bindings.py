@@ -8,7 +8,7 @@ def keybindings():
     actions = {}
     # app always handled
     actions["app"] = {}
-    actions["app"]["app_exit"] = [["c"], ["ctrl"]]
+    actions["app"]["app_exit"] = [["q"], ["ctrl"]]
     # actions["app"]["tab_next"] = [["left"], ["ctrl"]]
     # actions["app"]["tab_previous"] = [["right"], ["ctrl"]]
     # tabs have different actions / bindings
