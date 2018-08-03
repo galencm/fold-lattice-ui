@@ -187,6 +187,14 @@ class ColorPickerPopup(Popup):
         self.content = ColorPicker()
         self.size_hint = (.5,.5)
         super(ColorPickerPopup, self).__init__()
+@attr.s
+class ScriptThing(object):
+    name = attr.ib(default="")
+    script = attr.ib(default="")
+    # since ScriptThing is so small, for now
+    # embed visible attribute in the class instead
+    # of separating into a ScriptThingItem
+    visible = attr.ib(default=True)
 
 @attr.s
 class PaletteThing(object):
@@ -911,14 +919,47 @@ class ViewSelector(BoxLayout):
 class ScriptViewViewerConfig(BoxLayout):
     def __init__(self, source_source, **kwargs):
         self.source_source = source_source
+        self.aliased_scripts = []
         super(ScriptViewViewerConfig, self).__init__(**kwargs)
-        for param in ["allow shell calls", "db write after run"]:
-            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
-            row.add_widget(Label(text=str(param)))
-            row.add_widget(CheckBox())
-            self.add_widget(row)
+        alias_scroll = ScrollView(bar_width=20)
+        self.alias_container = BoxLayout(orientation="vertical", size_hint_y=None, height=800, minimum_height=200)
+        alias_scroll.add_widget(self.alias_container)
+        self.add_widget(alias_scroll)
+        # for param in ["allow shell calls", "db write after run"]:
+        #     row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+        #     row.add_widget(Label(text=str(param)))
+        #     row.add_widget(CheckBox())
+        #     self.add_widget(row)
 
     # input for alias scripts that become button in ScriptViewViewer
+    def add_alias(self, name, script):
+        alias = ScriptThing(name=name, script=script)
+        self.aliased_scripts.append(alias)
+        self.update_aliases()
+
+    def update_aliases(self):
+        self.alias_container.clear_widgets()
+        for alias in self.aliased_scripts:
+            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+            row.add_widget(Label(text="{}".format(alias.name), size_hint_y=None, height=30))
+            del_alias = Button(text="del", size_hint_y=None, height=30)
+            del_alias.bind(on_press=lambda widget, alias=alias: [self.aliased_scripts.remove(alias), self.update_aliases()])
+            row.add_widget(del_alias)
+            self.alias_container.add_widget(row)
+            script_edit = TextInput(text="{}".format(alias.script))
+            self.alias_container.add_widget(script_edit)
+            update_button = Button(text="update script", size_hint_y=None, height=30)
+            update_button.bind(on_press=lambda widget, alias=alias, script_edit=script_edit: [setattr(alias, "script", script_edit.text), self.update_aliases()])
+            self.alias_container.add_widget(update_button)
+            row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
+            row.add_widget(Label(text="show in folds", size_hint_y=None, height=30))
+            visible_checkbox = CheckBox()
+            if alias.visible:
+                visible_checkbox.active = BooleanProperty(True)
+            visible_checkbox.bind(active=lambda widget, value, alias=alias: [setattr(alias, "visible", value), print(alias.visible)])
+            row.add_widget(visible_checkbox)
+
+            self.alias_container.add_widget(row)
 
     @property
     def config_hash(self):
@@ -927,18 +968,22 @@ class ScriptViewViewerConfig(BoxLayout):
     def configured(self):
         class ConfiguredScriptViewViewer(ScriptViewViewer):
             # view_source kwarg will be supplied in fold
-            __init__ = functools.partialmethod(ScriptViewViewer.__init__, config_hash=self.config_hash, source_source=self.source_source)
+            __init__ = functools.partialmethod(ScriptViewViewer.__init__, config_hash=self.config_hash, source_source=self.source_source, config_class=self)
         return ConfiguredScriptViewViewer
 
 class ScriptViewViewer(BoxLayout):
-    def __init__(self, view_source=None, config_hash=None, source_source=None, **kwargs):
+    def __init__(self, view_source=None, config_hash=None, source_source=None, config_class=None, **kwargs):
         self.orientation = "vertical"
         self.config_hash = config_hash
         self.view_source = view_source
         self.source_source = source_source
+        self.config_class = config_class
         self.buttons_container = BoxLayout(orientation="vertical")
         self.run_script_this_button = Button(text="run script on this", size_hint_y=None, height=30)
         self.run_script_all_button = Button(text="run script on all", size_hint_y=None, height=30)
+        self.create_alias_name = TextInput(hint_text="aliased name", multiline=False, size_hint_y=None, height=30)
+        self.create_script_button = Button(text="add to aliased", size_hint_y=None, height=30)
+        self.create_script_button.bind(on_press=lambda widget: [self.config_class.add_alias(self.create_alias_name.text, self.script_input.text), self.aliases()])
         self.script_input = TextInput(hint_text="()", multiline=True, size_hint_y=1)
         self.run_script_this_button.bind(on_press=lambda widget: self.run_script(self.script_input.text, widget=self.script_input))
         self.run_script_all_button.bind(on_press=lambda widget: self.run_script(self.script_input.text, widget=self.script_input, run_on_all=True))
@@ -946,11 +991,23 @@ class ScriptViewViewer(BoxLayout):
         self.buttons_container.add_widget(self.script_input)
         self.buttons_container.add_widget(self.run_script_this_button)
         self.buttons_container.add_widget(self.run_script_all_button)
+        self.buttons_container.add_widget(self.create_alias_name)
+        self.buttons_container.add_widget(self.create_script_button)
         self.add_widget(self.buttons_container)
+        self.alias_container = GridLayout(cols=2)
         self.env_container = GridLayout(cols=1)
+        self.add_widget(self.alias_container)
         self.add_widget(self.env_container)
+        self.aliases()
         self.env_vars_display()
 
+    def aliases(self):
+        self.alias_container.clear_widgets()
+        for alias in self.config_class.aliased_scripts:
+            if alias.visible:
+                alias_button = Button(text=str(alias.name), size_hint_y=None, height=30)
+                alias_button.bind(on_press=lambda widget, alias=alias: setattr(self.script_input, "text", alias.script))
+                self.alias_container.add_widget(alias_button)
 
     def run_script(self, script, widget=None, run_on_all=False):
         if widget:
