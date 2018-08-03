@@ -881,13 +881,16 @@ class ViewSelector(BoxLayout):
         self.source_source = source_source
         super(ViewSelector, self).__init__(**kwargs)
         self.viewerclasses = { class_name : class_constructor for (class_name, class_constructor) in inspect.getmembers(sys.modules[__name__], inspect.isclass) if "ViewViewerConfig" in class_name}
+        self.view_configs = []
         self.views_panel =  TabbedPanel(do_default_tab=False, tab_width=200)
         self.add_widget(self.views_panel)
         self.viewers = []
         self.selected_viewer_index = 0
         for viewer_class in sorted(self.viewerclasses.keys()):
             item = TabbedPanelItem(text="{}".format(viewer_class))
-            item.add_widget(self.viewerclasses[viewer_class](source_source=self.source_source))
+            view = self.viewerclasses[viewer_class](source_source=self.source_source)
+            item.add_widget(view)
+            self.view_configs.append(view)
             self.views_panel.add_widget(item)
             self.viewers.append(item.content)
 
@@ -930,6 +933,30 @@ class ScriptViewViewerConfig(BoxLayout):
         #     row.add_widget(Label(text=str(param)))
         #     row.add_widget(CheckBox())
         #     self.add_widget(row)
+
+    def save(self):
+        scripts = []
+        for script_thing in self.aliased_scripts:
+            script = etree.Element("script")
+            script.set("name", str(script_thing.name))
+            script.set("script", str(script_thing.script))
+            script.set("visible", str(script_thing.visible))
+            scripts.append(script)
+        return scripts
+
+    def load(self, xml):
+        for script in xml.xpath('//script'):
+            script_args = {}
+            script_args["name"] = script.xpath("./@name")[0]
+            script_args["script"] = script.xpath("./@script")[0]
+            script_args["visible"] = script.xpath("./@visible")[0]
+            if script_args["visible"].lower() == "true" or script_args["visible"] == "1":
+                 script_args["visible"] = True
+            else:
+                script_args["visible"] = False
+            script_thing = ScriptThing(**script_args)
+            self.aliased_scripts.append(script_thing)
+        self.update_aliases()
 
     # input for alias scripts that become button in ScriptViewViewer
     def add_alias(self, name, script):
@@ -2368,6 +2395,14 @@ class FoldedInlayApp(App):
         machine.append(session)
 
         #possibilities=[ColorMapThing(color=<Color #066e1f>, name='12', rough_amount=12)]
+        for config_widget in self.session["sources"].view_selector.view_configs:
+            try:
+                for element in config_widget.save():
+                    session.append(element)
+            except Exception as ex:
+                print(ex)
+                pass
+
         for palette_thing in self.session['palette'].palette():
             palette = etree.Element("palette")
             palette.set("name", str(palette_thing.name))
@@ -2457,6 +2492,13 @@ class FoldedInlayApp(App):
                     xml = etree.parse(file)
                     print("restoring {}".format(xml))
                     for session in xml.xpath('//session'):
+                        # viewerconfigs
+                        for config_widget in self.session["sources"].view_selector.view_configs:
+                            try:
+                                config_widget.load(session)
+                            except Exception as ex:
+                                print(ex)
+                                pass
                         # restore palettes
                         for palette in session.xpath('//palette'):
                             palette_args = {}
