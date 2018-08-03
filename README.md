@@ -130,6 +130,15 @@ cd /tmp
 fold-ui-fairytale --ingest-manifest boook.csv --ingest-map filename binary_key --ingest-as-binary filename --db-port 6379
 ```
 
+For example, a boook with rotated images distinguished with fairytale by field _device_ containing _capture1_ or _capture2_:
+```
+primitives-generate-boook --section foo 10 full --section bar 10 full --section baz 10 full --manifest csv csv --verbose --rotate -90 90
+```
+
+```
+fold-ui-fairytale --ingest-manifest boook.csv --ingest-map filename binary_key --ingest-as-binary filename --field-cycle device capture1 capture2 --db-port 6665 --db-del-pattern glworb:* --verbose
+```
+
 ## Contributing
 This project uses the C4 process 
 
