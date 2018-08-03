@@ -40,6 +40,8 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
     calls = []
     if env_vars is None:
         env_vars = {}
+    # include source keys as env vars by prefixing a $
+    env_vars.update({"${}".format(k) : v for k, v in source.items()})
 
     for line in model.lines:
         if line.shellcall:

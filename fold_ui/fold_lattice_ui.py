@@ -560,14 +560,22 @@ class SourcesPreview(BoxLayout):
         self.add_widget(bottom)
         self.get_sources()
 
-    @property
-    def env_vars(self):
+    #@property
+    def env_vars(self, source_uuid=None):
         env_vars = { "$DB_PORT" :  redis_conn.connection_pool.connection_kwargs["port"],
                      "$DB_HOST" :  redis_conn.connection_pool.connection_kwargs["host"],
                      "$SOURCES" : self.sources_key,
                      "[**]" : self.sources_key,
                      "$VIEWER_KEY" : ""
                    }
+
+        if source_uuid is not None:
+            try:
+                source_position = self.sources_sequenced.index(source_uuid)
+                env_vars.update({"$SEQUENCE" : source_position})
+            except:
+                pass
+
         env_vars.update(self.stored_env_vars)
         return env_vars
 
@@ -589,6 +597,22 @@ class SourcesPreview(BoxLayout):
             redis_conn.rpush(sources_key, *source_keys)
 
         return sources_key
+
+    @property
+    def sources_sequenced(self):
+        sources_key = "structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
+        redis_conn.delete(sources_key)
+        source_keys = []
+        try:
+            source_keys = [source["META_DB_KEY"] for source in self.sources_structured if source]
+        except TypeError:
+            pass
+        except KeyError:
+            pass
+        if source_keys:
+            redis_conn.rpush(sources_key, *source_keys)
+
+        return source_keys
 
     def change_db_settings(self, widget=None):
         global r_ip
@@ -945,12 +969,12 @@ class ScriptViewViewer(BoxLayout):
                 if run_on_all:
                     for source_num, source in enumerate(self.source_source.sources_structured):
                         if source:
-                            source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars)
+                            source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars(source["META_DB_KEY"]))
                             print(source_num, source, source_modified)
                             if source_modified:
                                 self.source_source.sources_structured[source_num] = source_modified
                 else:
-                    source_modified = keyling.parse_lines(model, self.view_source, self.view_source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars)
+                    source_modified = keyling.parse_lines(model, self.view_source, self.view_source["META_DB_KEY"], allow_shell_calls=True, env_vars=self.source_source.env_vars( self.view_source["META_DB_KEY"]))
                     self.view_source = source_modified
 
             widget.background_color = [1, 1, 1, 1]
@@ -965,7 +989,7 @@ class ScriptViewViewer(BoxLayout):
 
     def env_vars_display(self):
         self.env_container.clear_widgets()
-        ev =  self.source_source.env_vars
+        ev =  self.source_source.env_vars(self.view_source["META_DB_KEY"])
         ev.update({"[*]" : self.view_source["META_DB_KEY"]})
         for var_name, var_value in ev.items():
             row = BoxLayout()
@@ -1072,7 +1096,7 @@ class EditViewViewer(BoxLayout):
     def highlight_field(self):
         for widget in self.fields_container.children:
             try:
-                if widget.field == self.source_source.env_vars["$SELECTED_KEY"]:
+                if widget.field == self.source_source.env_vars()["$SELECTED_KEY"]:
                     widget.highlight.background_color = [0, 1, 0, 1]
                 else:
                     widget.highlight.background_color = [1, 1, 1, 1]
