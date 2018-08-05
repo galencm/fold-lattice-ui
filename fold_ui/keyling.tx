@@ -19,7 +19,15 @@ field=Field symbol=Symbol? comparatee=Comparatee? | shellcall=Shell
 ;
 
 Shell:
+NonBlockingShell | BlockingShell
+;
+
+NonBlockingShell:
 '$(' call=QuotedString ')'
+;
+
+BlockingShell:
+'$$(' call=QuotedString ')'
 ;
 
 Field:

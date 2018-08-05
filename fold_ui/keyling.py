@@ -45,11 +45,17 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
 
     for line in model.lines:
         if line.shellcall:
+            if "NonBlockingShell" in str(line.shellcall):
+                call_mode = subprocess.Popen
+            elif "BlockingShell" in str(line.shellcall):
+                call_mode = subprocess.call
+            else:
+                call_mode = subprocess.Ccall
             call = line.shellcall.call.value.replace("[*]", source_key)
             # substitute env vars
             for var, var_value in env_vars.items():
                 call = call.replace(str(var), str(var_value))
-            calls.append(call)
+            calls.append((call, call_mode))
 
         # name only
         if not line.symbol and not line.comparatee and not line.shellcall:
@@ -83,10 +89,10 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
             elif symbol == "=":
                 source.update({line.field.name : line.comparatee})
 
-    for call in calls:
+    for call, call_mode in calls:
         if allow_shell_calls:
-            print("calling: ",call)
-            print(subprocess.check_output(call.split(" ")))
+            print("calling: ",call, call_mode)
+            print(call_mode(call.split(" ")))
     return source
 
 def example():
