@@ -592,7 +592,7 @@ class SourcesPreview(BoxLayout):
 
     @property
     def sources_key(self):
-        sources_key = "structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
+        sources_key = "machinic:structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
         redis_conn.delete(sources_key)
         source_keys = []
         try:
@@ -608,7 +608,7 @@ class SourcesPreview(BoxLayout):
 
     @property
     def sources_sequenced(self):
-        sources_key = "structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
+        sources_key = "machinic:structured:{}:{}".format(redis_conn.connection_pool.connection_kwargs["host"], redis_conn.connection_pool.connection_kwargs["port"])
         redis_conn.delete(sources_key)
         source_keys = []
         try:
