@@ -44,51 +44,52 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
     # include source keys as env vars by prefixing a $
     env_vars.update({"${}".format(k) : v for k, v in source.items()})
 
-    for line in model.lines:
-        if line.shellcall:
-            if "NonBlockingShell" in str(line.shellcall):
-                call_mode = subprocess.Popen
-            elif "BlockingShell" in str(line.shellcall):
-                call_mode = subprocess.call
-            else:
-                call_mode = subprocess.Ccall
-            call = line.shellcall.call.value.replace("[*]", source_key)
-            # substitute env vars
-            for var, var_value in env_vars.items():
-                call = call.replace(str(var), str(var_value))
-            calls.append((call, call_mode))
+    for function in model.functions:
+        for line in function.lines:
+            if line.shellcall:
+                if "NonBlockingShell" in str(line.shellcall):
+                    call_mode = subprocess.Popen
+                elif "BlockingShell" in str(line.shellcall):
+                    call_mode = subprocess.call
+                else:
+                    call_mode = subprocess.Ccall
+                call = line.shellcall.call.value.replace("[*]", source_key)
+                # substitute env vars
+                for var, var_value in env_vars.items():
+                    call = call.replace(str(var), str(var_value))
+                calls.append((call, call_mode))
 
-        # name only
-        if not line.symbol and not line.comparatee and not line.shellcall:
-            if line.field.name in source:
-                pass
-            else:
-                return None
-
-        # name and symbol
-        if line.symbol:
-            symbol = line.symbol
-            if symbol == "not" or symbol == "!":
-                if not line.comparatee:
-                    try:
-                        if source[line.field.name]:
-                            return None
-                    except KeyError:
-                        pass
-            elif symbol == "==":
-                if not line.field.name in source:
-                    return None
-
-                try:
-                    comparatee = line.comparatee.value
-                except:
-                    comparatee = line.comparatee
-                if source[line.field.name] == comparatee:
+            # name only
+            if not line.symbol and not line.comparatee and not line.shellcall:
+                if line.field.name in source:
                     pass
                 else:
                     return None
-            elif symbol == "=":
-                source.update({line.field.name : line.comparatee})
+
+            # name and symbol
+            if line.symbol:
+                symbol = line.symbol
+                if symbol == "not" or symbol == "!":
+                    if not line.comparatee:
+                        try:
+                            if source[line.field.name]:
+                                return None
+                        except KeyError:
+                            pass
+                elif symbol == "==":
+                    if not line.field.name in source:
+                        return None
+
+                    try:
+                        comparatee = line.comparatee.value
+                    except:
+                        comparatee = line.comparatee
+                    if source[line.field.name] == comparatee:
+                        pass
+                    else:
+                        return None
+                elif symbol == "=":
+                    source.update({line.field.name : line.comparatee})
 
     for call, call_mode in calls:
         if allow_shell_calls:
