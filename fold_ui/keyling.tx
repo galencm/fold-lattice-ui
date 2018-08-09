@@ -39,7 +39,7 @@ Field:
 ;
 
 Symbol:
-'not' | '!' | '==' | '='
+'not' | '!' | '==' | '=' | '>' | '<'
 ;
 
 Comparatee:

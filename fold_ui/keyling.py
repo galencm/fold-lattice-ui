@@ -90,6 +90,29 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
                         return None
                 elif symbol == "=":
                     source.update({line.field.name : line.comparatee})
+                elif symbol == ">":
+                    # currently only for ints
+                    try:
+                        comparatee = line.comparatee.value
+                    except:
+                        comparatee = line.comparatee
+
+                    if int(source[line.field.name]) > int(comparatee):
+                        pass
+                    else:
+                        return None
+                elif symbol == "<":
+                    # currently only for ints
+                    try:
+                        comparatee = line.comparatee.value
+                    except:
+                        comparatee = line.comparatee
+
+                    if int(source[line.field.name]) < int(comparatee):
+                        pass
+                    else:
+                        return None
+
 
     for call, call_mode in calls:
         if allow_shell_calls:
