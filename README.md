@@ -62,10 +62,10 @@ sudo apt-get install redis-server
 
 A simple example shows the creation of 600 items on a specified redis server (by default both fold-ui and fairytale will attempt to connect to redis via service discovery).
 
-Create a config file to enable keyspace events and start a redis server in the background:
+Create a config file to enable keyspace events and snapshot. Then start a redis server in the background:
 
 ```
-echo "notify-keyspace-events KEA" >> redis.conf
+printf "notify-keyspace-events KEA\nSAVE 60 1\n" >> redis.conf
 redis-server redis.conf --port 6379 &
 ```
 
