@@ -298,7 +298,7 @@ def main():
     parser.add_argument("--db-host",  default="127.0.0.1", help="db host ip")
     parser.add_argument("--db-port", default=6379, help="db port")
     parser.add_argument("--db-prefix",  default="glworb:", help="db key prefix, will be follwed by uuid")
-    parser.add_argument("--db-expire-in", type=int, default=None, help="db key expiration time in seconds")
+    parser.add_argument("--db-expire-in", type=int, default=0, help="db key expiration time in seconds")
     parser.add_argument("--db-del-pattern", action="append", help="delete a pattern, will run before any other commands")
     parser.add_argument("--db-del-field", help="from --db-del-pattern pattern matches, only delete if specified field exists")
     parser.add_argument("--db-expire-interval", type=int, default=0, help="db key expiration interval")
