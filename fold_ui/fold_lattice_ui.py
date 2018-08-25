@@ -1097,6 +1097,19 @@ class EditViewViewerConfig(BoxLayout):
             __init__ = functools.partialmethod(EditViewViewer.__init__, config_hash=self.config_hash, source_source=self.source_source)
         return ConfiguredEditViewViewer
 
+    def save(self):
+        to_save = []
+        if "$SELECTED_KEY" in self.source_source.env_vars():
+            view = etree.Element("view")
+            view.set("highlighted",  self.source_source.env_vars()["$SELECTED_KEY"])
+            to_save.append(view)
+        return to_save
+
+    def load(self, xml):
+        for script in xml.xpath('//view'):
+            highlighted = script.xpath("./@highlighted")[0]
+            self.source_source.set_env_var("$SELECTED_KEY", highlighted)
+
 class EditViewViewer(BoxLayout):
     def __init__(self, view_source=None, config_hash=None, source_source=None, **kwargs):
         self.orientation = "vertical"
