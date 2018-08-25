@@ -2407,7 +2407,7 @@ class FoldedInlayApp(App):
         structure_preview = StructurePreview(spec_source=cellspec_layout.spec, palette_source=palette_layout.palette, source_source=sources_preview, app=self)
         preview.add_widget(structure_preview)
         #preview.add_widget(folds)
-        for top_level_item, title in [(config,"spec/palette"), (preview,"preview"), (folds,"folds"), (sources,"sources"), (scripts, "scripts"), (bindings_scroll, "bindings")]:
+        for top_level_item, title in [(config,"specify"), (preview,"overview"), (folds,"folds"), (sources,"views"), (scripts, "hooks"), (bindings_scroll, "bindings")]:
             item = TabbedPanelItem(text="{}".format(title))
             item.add_widget(top_level_item)
             root.add_widget(item)
