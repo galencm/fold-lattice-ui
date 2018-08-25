@@ -1075,6 +1075,7 @@ class ScriptViewViewer(BoxLayout):
         self.env_container.clear_widgets()
         ev =  self.source_source.env_vars(self.view_source["META_DB_KEY"])
         ev.update({"[*]" : self.view_source["META_DB_KEY"]})
+        ev.update({"$SOURCE" : self.view_source["META_DB_KEY"]})
         for var_name, var_value in ev.items():
             row = BoxLayout()
             row.add_widget(Label(text=str(var_name)))
