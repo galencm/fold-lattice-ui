@@ -80,7 +80,7 @@ _Note: all examples use default redis port 6379, but any unused port can be subs
 Run fairytale:
 
 ```
-fold-ui-fairytale --db-host 127.0.0.1 --db-port 6379 --db-expire-in 400 --part-part-amounts 200 200 200 --part-increment-field page_number --part-field-values part part1 part2 part3 --verbose
+fold-ui-fairytale --db-host 127.0.0.1 --db-port 6379 --part-part-amounts 200 200 200 --part-increment-field page_number --part-field-values part part1 part2 part3 --verbose
 ```
 
 Start fold-ui:
