@@ -1251,6 +1251,29 @@ class ImageViewViewerConfig(BoxLayout):
         # keep dropdown updated
         Clock.schedule_interval(lambda dt: self.update_sources(), 10)
 
+    def save(self):
+        to_save = []
+        view = etree.Element("view")
+        view.set("resolution", self.resolution_selection.text)
+        view.set("source_key", self.key_selection.text)
+        to_save.append(view)
+        return to_save
+
+    def load(self, xml):
+        resolution = None
+        source_key = None
+        for view in xml.xpath('//view'):
+            try:
+                resolution = view.xpath("./@resolution")[0]
+                self.resolution_selection.text = resolution
+            except:
+                pass
+            try:
+                source_key = view.xpath("./@source_key")[0]
+                self.key_selection.text = source_key
+            except:
+                pass
+
     def update_sources(self):
         self.key_selection.preload = sorted(list(self.source_source.source_fields))
 
