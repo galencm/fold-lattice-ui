@@ -1408,6 +1408,10 @@ class StructurePreview(BoxLayout):
         self.generate_structure_preview(parameters=self.parameters)
 
     def update_parameter_widgets(self):
+        # by default sources are toggled visible
+        if not "sources" in self.parameters:
+            self.parameters["sources"] = True
+
         for widget in self.checkbox_widgets:
             try:
                 if self.parameters[widget.text] == True:
