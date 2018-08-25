@@ -16,11 +16,11 @@ keyling_metamodel = metamodel_from_file(os.path.join(path, 'keyling.tx'))
 # https://github.com/hintjens/zs
 #
 # (
-# not [rotated],                # if source[rotated] does not exist or is None ![rotated]
-# [device] == <capture1>,       # if source[device] equals 'capture1'
-# $(img-pipe rotate 90 [*]),    # shell out command img-pip rotate source[META_DB_KEY]
-# [rotated] = 90,               # set source[rotated] to 90
-# )                             # write source values to db
+# [rotated]!,                     # if source[rotated] does not exist or is None ![rotated]
+# [device] == <capture1>,         # if source[device] equals 'capture1'
+# $(<"img-pipe rotate 90 [*]">"), # shell out command img-pip rotate source[META_DB_KEY]
+# [rotated] = 90,                 # set source[rotated] to 90
+# )                               # write source values to db
 #
 # If any statements evaluate False, 
 #   * break out of () block
