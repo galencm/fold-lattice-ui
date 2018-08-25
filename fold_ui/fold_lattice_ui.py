@@ -2250,6 +2250,7 @@ class FoldedInlayApp(App):
         self.session_save_path = "~/.config/fold/"
         self.session_save_filename = "session.xml"
         self.session = {}
+        self.session["state"] = []
         self.restore_session = True
         self.xml_files_to_load = []
         if kwargs["db_host"] and kwargs["db_port"]:
@@ -2435,6 +2436,16 @@ class FoldedInlayApp(App):
         session = etree.Element("session")
         machine.append(session)
 
+        # a generic list of widgets that may need state
+        for widget in self.session["state"]:
+            try:
+                for element in widget.save():
+                    session.append(element)
+            except Exception as ex:
+                print(ex)
+                pass
+
+
         #possibilities=[ColorMapThing(color=<Color #066e1f>, name='12', rough_amount=12)]
         for config_widget in self.session["sources"].view_selector.view_configs:
             try:
@@ -2560,6 +2571,13 @@ class FoldedInlayApp(App):
 
         if xml:
             for session in xml.xpath('//session'):
+                # a generic list of widgets that may need state
+                for widget in self.session["state"]:
+                    try:
+                        widget.load(session)
+                    except Exception as ex:
+                        print(ex)
+                        pass
                 # viewerconfigs
                 for config_widget in self.session["sources"].view_selector.view_configs:
                     try:
