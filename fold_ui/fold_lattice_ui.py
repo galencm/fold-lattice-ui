@@ -690,7 +690,7 @@ class SourcesPreview(BoxLayout):
 
     def hook_source_added(self, source):
         source_modified = None
-        model = self.app.session["scripts"].script_editor.scripts()
+        model = self.app.session["scripts"].script_hooks.scripts()
         if model:
             source_modified = keyling.parse_lines(model, source, source["META_DB_KEY"], allow_shell_calls=False)
         # write source modified by keyling
@@ -1351,28 +1351,50 @@ class BindingItem(BoxLayout):
         text = text.replace(" ", "")
         return text.split(",")
 
-class ScriptEditor(BoxLayout):
+class ScriptHooks(BoxLayout):
     def __init__(self, app=None, **kwargs):
         self.app = app
         self.script_inputs = []
-        super(ScriptEditor, self).__init__(**kwargs)
-        for widget, widget_title in [("on_add_script_input", "on_add hook"), ("run_now_script_input", "run now")]:
+        self.orientation = "vertical"
+        super(ScriptHooks, self).__init__(**kwargs)
+        for widget, widget_title in [("on_add_script_input", "on_add")]:
             col = BoxLayout(orientation="vertical")
             w = TextInput()
+            w.hook = widget_title
             col.add_widget(Label(text=str(widget_title), height=30, size_hint_y=None))
             col.add_widget(w)
             self.script_inputs.append(w)
             self.add_widget(col)
-        options_col = BoxLayout(orientation="vertical")
+        options_col = BoxLayout(orientation="vertical", size_hint_y=None)
         validate_script_button = Button(text="validate", height=60, size_hint_y=None)
         validate_script_button.bind(on_press=lambda widget: self.validate_script())
-        allow_calls_checkbox = CheckBox()
         options_col.add_widget(validate_script_button)
-        call_row = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
-        call_row.add_widget(Label(text="allow shell calls"))
-        call_row.add_widget(allow_calls_checkbox)
-        options_col.add_widget(call_row)
         self.add_widget(options_col)
+        # connect scriptview aliases to here and display using update_aliases()?
+        # for now copy / paste
+        # self.alias_container = BoxLayout(orientation="vertical", size_hint_y=None)
+        # self.add_widget(self.alias_container)
+
+    def save(self):
+        to_save = []
+        for widget in self.script_inputs:
+            script = etree.Element("script")
+            script.set("raw", widget.text)
+            script.set("ling", "keyling")
+            script.set("hook", "on_add")
+            to_save.append(script)
+        return to_save
+
+    def load(self, xml):
+        for script in xml.xpath('//script'):
+            try:
+                hook = script.get("hook")
+                for widget in self.script_inputs:
+                    if widget.hook == hook:
+                        widget.text = script.get("raw")
+            except Exception as ex:
+                print(ex)
+                pass
 
     def validate_script(self):
         for widget in self.script_inputs:
@@ -2347,9 +2369,10 @@ class FoldedInlayApp(App):
         folds.app = self
 
         scripts = BoxLayout()
-        script_editor = ScriptEditor(app=self)
-        scripts.add_widget(script_editor)
-        scripts.script_editor = script_editor
+        script_hooks = ScriptHooks(app=self)
+        self.session["state"].append(script_hooks)
+        scripts.add_widget(script_hooks)
+        scripts.script_hooks = script_hooks
         self.session["scripts"] = scripts
 
         config = BoxLayout(orientation="vertical")
