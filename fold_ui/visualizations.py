@@ -255,12 +255,16 @@ def structure_preview(structure, spec, palette, sparse_expected=False, sparse_fo
                         try:
                             continuity_previous = continuity_current
                             continuity_current = cell[continuity_key]
-                            if continuity_current == continuity_previous and cell[k] == primary_previous:
-                                annotations.append(("duplicate", continuity_key, cell_position, cell_position - 1))
-                                cell_textures.append("duplicate")
-                            elif continuity_current - 1 != continuity_previous and cell[k] == primary_previous:
-                                annotations.append(("discontinuous", continuity_key, cell_position, cell_position - 1))
-                                cell_textures.append("discontinuous")
+                            try:
+                                if continuity_current == continuity_previous and cell[k] == primary_previous:
+                                    annotations.append(("duplicate", continuity_key, cell_position, cell_position - 1))
+                                    cell_textures.append("duplicate")
+                                elif continuity_current - 1 != continuity_previous and cell[k] == primary_previous:
+                                    annotations.append(("discontinuous", continuity_key, cell_position, cell_position - 1))
+                                    cell_textures.append("discontinuous")
+                            except TypeError as ex:
+                                pass
+
                             primary_previous = cell[k]
                         except KeyError:
                             pass
