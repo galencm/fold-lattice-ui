@@ -54,7 +54,7 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
                 else:
                     call_mode = subprocess.Ccall
                 call = line.shellcall.call.value.replace("[*]", source_key)
-                call = line.shellcall.call.value.replace("$SOURCEKEY", source_key)
+                call = call.replace("$SOURCEKEY", source_key)
                 # substitute env vars
                 for var, var_value in env_vars.items():
                     call = call.replace(str(var), str(var_value))
