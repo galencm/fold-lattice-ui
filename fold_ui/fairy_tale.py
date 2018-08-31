@@ -216,54 +216,54 @@ def ingest_things(**kwargs):
         write_to_db = []
         with open(kwargs["ingest_manifest"], "r") as csv_file:
             reader = csv.DictReader(csv_file)
-            for row in reader:
+            for row_num, row in enumerate(reader):
                 db_hash = {}
-                for k, v in row.items():
-                    key = k
-                    for source, dest in kwargs["ingest_map"]:
-                        if source == k:
-                            key = dest
-                    if k in kwargs["ingest_as_binary"]:
-                        bytes_key = "{}{}".format(kwargs["ingest_binary_prefix"], str(uuid.uuid4()))
-                        binary_r.set(bytes_key, ingest_file(v))
-                        db_hash[key] = bytes_key
-                    else:
-                        db_hash[key] = v
+                if not kwargs["ingest_manifest_lines"] or row_num in kwargs["ingest_manifest_lines"]:
+                    for k, v in row.items():
+                        key = k
+                        for source, dest in kwargs["ingest_map"]:
+                            if source == k:
+                                key = dest
+                        if k in kwargs["ingest_as_binary"]:
+                            bytes_key = "{}{}".format(kwargs["ingest_binary_prefix"], str(uuid.uuid4()))
+                            binary_r.set(bytes_key, ingest_file(v))
+                            db_hash[key] = bytes_key
+                        else:
+                            db_hash[key] = v
 
-                    if key in to_mislabel_span_badstr:
-                        try:
-                            if to_mislabel_span_badstr[key][0] == int(v) and to_mislabel_span_badstr[key][1] > 0:
-                                badstr = "".join(random.choice(";:,.{}@#!()^\/`[]+-|~`1234567890") for _ in range(random.randint(1,3)))
-                                db_hash[key] = badstr
-                                to_mislabel_span_badstr[key][1] -= 1
-                                to_mislabel_span_badstr[key][0] += 1
-                                if kwargs["verbose"]:
-                                    print("mislabeled: {}:{} to {}".format(k, v, badstr))
+                        if key in to_mislabel_span_badstr:
+                            try:
+                                if to_mislabel_span_badstr[key][0] == int(v) and to_mislabel_span_badstr[key][1] > 0:
+                                    badstr = "".join(random.choice(";:,.{}@#!()^\/`[]+-|~`1234567890") for _ in range(random.randint(1,3)))
+                                    db_hash[key] = badstr
+                                    to_mislabel_span_badstr[key][1] -= 1
+                                    to_mislabel_span_badstr[key][0] += 1
+                                    if kwargs["verbose"]:
+                                        print("mislabeled: {}:{} to {}".format(k, v, badstr))
 
-                        except ValueError:
-                            pass
+                            except ValueError:
+                                pass
 
-                    if key in to_mislabel_span_integer:
-                        try:
-                            if to_mislabel_span_integer[key][0] == int(v) and to_mislabel_span_integer[key][1] > 0:
-                                if to_mislabel_span_integer[key][2] == 0:
-                                    to_mislabel_span_integer[key][2] = int(v) - 3
-                                db_hash[key] = to_mislabel_span_integer[key][2]
-                                to_mislabel_span_integer[key][1] -= 1
-                                to_mislabel_span_integer[key][2] += 1
-                                to_mislabel_span_integer[key][0] += 1
-                                if kwargs["verbose"]:
-                                    print("mislabeled: {}:{} to {}".format(k, v, to_mislabel_span_integer[key][2]))
-                        except ValueError:
-                            pass
+                        if key in to_mislabel_span_integer:
+                            try:
+                                if to_mislabel_span_integer[key][0] == int(v) and to_mislabel_span_integer[key][1] > 0:
+                                    if to_mislabel_span_integer[key][2] == 0:
+                                        to_mislabel_span_integer[key][2] = int(v) - 3
+                                    db_hash[key] = to_mislabel_span_integer[key][2]
+                                    to_mislabel_span_integer[key][1] -= 1
+                                    to_mislabel_span_integer[key][2] += 1
+                                    to_mislabel_span_integer[key][0] += 1
+                                    if kwargs["verbose"]:
+                                        print("mislabeled: {}:{} to {}".format(k, v, to_mislabel_span_integer[key][2]))
+                            except ValueError:
+                                pass
 
-                if cycling_fields:
-                    for k, v in cycling_fields.items():
-                        db_hash[k] = next(v)
+                    if cycling_fields:
+                        for k, v in cycling_fields.items():
+                            db_hash[k] = next(v)
 
-                if db_hash:
-                    write_to_db.append(db_hash)
-
+                    if db_hash:
+                        write_to_db.append(db_hash)
         to_miss = []
         while len(to_miss) < kwargs["structure_missing"]:
             to_miss.append(random.randint(0, len(write_to_db) - 1))
@@ -320,6 +320,7 @@ def main():
     parser.add_argument("--binary-width", type=int, default=500, help="width of binary image")
 
     parser.add_argument("--ingest-manifest", help="manifest file")
+    parser.add_argument("--ingest-manifest-lines", nargs="+", default=[], type=int, help="specific lines of manifest to ingest, a series of integers")
     parser.add_argument("--ingest-as-binary", nargs="+", default=[], help="")
     parser.add_argument("--ingest-map", action="append",  nargs=2, metavar=("source name", "destination name"), default=[], help="")
     parser.add_argument("--ingest-prefix", default="glworb:", help="")
