@@ -946,16 +946,21 @@ class ScriptViewViewerConfig(BoxLayout):
 
     def load(self, xml):
         for script in xml.xpath('//script'):
-            script_args = {}
-            script_args["name"] = script.xpath("./@name")[0]
-            script_args["script"] = script.xpath("./@script")[0]
-            script_args["visible"] = script.xpath("./@visible")[0]
-            if script_args["visible"].lower() == "true" or script_args["visible"] == "1":
-                 script_args["visible"] = True
-            else:
-                script_args["visible"] = False
-            script_thing = ScriptThing(**script_args)
-            self.aliased_scripts.append(script_thing)
+            # hook scripts also use script tag by have no name
+            # wrap with try/except to ignore those
+            try:
+                script_args = {}
+                script_args["name"] = script.xpath("./@name")[0]
+                script_args["script"] = script.xpath("./@script")[0]
+                script_args["visible"] = script.xpath("./@visible")[0]
+                if script_args["visible"].lower() == "true" or script_args["visible"] == "1":
+                     script_args["visible"] = True
+                else:
+                    script_args["visible"] = False
+                script_thing = ScriptThing(**script_args)
+                self.aliased_scripts.append(script_thing)
+            except:
+                pass
         self.update_aliases()
 
     # input for alias scripts that become button in ScriptViewViewer
