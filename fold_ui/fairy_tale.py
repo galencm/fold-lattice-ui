@@ -214,11 +214,27 @@ def ingest_things(**kwargs):
     if kwargs["ingest_manifest"].endswith(".csv"):
         import csv
         write_to_db = []
+        # check if the csv has a header
+        # used for line_offset
+        with open(kwargs["ingest_manifest"], "r") as csv_file:
+            sniffer = csv.Sniffer()
+            csv_has_header = sniffer.has_header(csv_file.read(2048))
+
+        # calculate a line_offset for use with --ingest-manifest-lines
+        # since the line number seen using less -N file.csv
+        # includes the csv header(if one exists) and starts at 1
+        # whereas the reader enumeration begins at 0 with csv header not included
+        if csv_has_header:
+            line_offset = 2
+        else:
+            line_offset = 1
+
         with open(kwargs["ingest_manifest"], "r") as csv_file:
             reader = csv.DictReader(csv_file)
             for row_num, row in enumerate(reader):
                 db_hash = {}
-                if not kwargs["ingest_manifest_lines"] or row_num in kwargs["ingest_manifest_lines"]:
+                if not kwargs["ingest_manifest_lines"] or row_num + line_offset in kwargs["ingest_manifest_lines"]:
+                    print(row_num)
                     for k, v in row.items():
                         key = k
                         for source, dest in kwargs["ingest_map"]:
@@ -320,7 +336,7 @@ def main():
     parser.add_argument("--binary-width", type=int, default=500, help="width of binary image")
 
     parser.add_argument("--ingest-manifest", help="manifest file")
-    parser.add_argument("--ingest-manifest-lines", nargs="+", default=[], type=int, help="specific lines of manifest to ingest, a series of integers")
+    parser.add_argument("--ingest-manifest-lines", nargs="+", default=[], type=int, help="specific lines of manifest file to ingest. First line is 1, the header will be offset. Can be a sequence of integers")
     parser.add_argument("--ingest-as-binary", nargs="+", default=[], help="")
     parser.add_argument("--ingest-map", action="append",  nargs=2, metavar=("source name", "destination name"), default=[], help="")
     parser.add_argument("--ingest-prefix", default="glworb:", help="")
