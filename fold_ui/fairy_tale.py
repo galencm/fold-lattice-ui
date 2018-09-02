@@ -297,6 +297,7 @@ def ingest_things(**kwargs):
             else:
                 db_key = "{}{}".format(kwargs["ingest_prefix"], str(uuid.uuid4()))
                 redis_conn.hmset(db_key, to_write)
+                time.sleep(kwargs["structure_stagger_delay"])
                 if kwargs["verbose"]:
                     print(db_key)
 
