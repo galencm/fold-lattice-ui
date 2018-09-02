@@ -37,13 +37,11 @@ def model(text):
     model = keyling_metamodel.model_from_str(text)
     return model
 
-def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=None):
-    calls = []
+def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=None, source_updates=None):
     if env_vars is None:
         env_vars = {}
     # include source keys as env vars by prefixing a $
     env_vars.update({"${}".format(k) : v for k, v in source.items()})
-
     for function in model.functions:
         for line in function.lines:
             if line.shellcall:
@@ -52,7 +50,7 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
                 elif "BlockingShell" in str(line.shellcall):
                     call_mode = subprocess.call
                 else:
-                    call_mode = subprocess.Ccall
+                    call_mode = subprocess.call
                 call = line.shellcall.call.value.replace("[*]", source_key)
                 call = call.replace("$SOURCEKEY", source_key)
                 # substitute env vars
@@ -60,8 +58,17 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
                 # substitutions, where $foos is overwritten by $foo before $foos
                 for var in reversed(sorted(env_vars.keys())):
                     call = call.replace(str(var), str(env_vars[var]))
-                calls.append((call, call_mode))
-
+                # call immediately to allow env_vars to be updated
+                # between results of shell calls
+                if allow_shell_calls:
+                    print("calling: ",call, call_mode)
+                    print(call_mode(shlex.split(call)))
+                # try to run the source_updates function which should return a dictionary
+                try:
+                    env_vars.update({"${}".format(k) : v for k, v in source_updates().items()})
+                    print("updated from source_updates: ", env_vars)
+                except Exception as ex:
+                    pass
             # name only
             if not line.symbol and not line.comparatee and not line.shellcall:
                 if line.field.name in source:
@@ -115,12 +122,6 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
                         pass
                     else:
                         return None
-
-
-    for call, call_mode in calls:
-        if allow_shell_calls:
-            print("calling: ",call, call_mode)
-            print(call_mode(shlex.split(call)))
     return source
 
 def example():
