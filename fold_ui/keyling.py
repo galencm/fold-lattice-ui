@@ -56,8 +56,10 @@ def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=Non
                 call = line.shellcall.call.value.replace("[*]", source_key)
                 call = call.replace("$SOURCEKEY", source_key)
                 # substitute env vars
-                for var, var_value in env_vars.items():
-                    call = call.replace(str(var), str(var_value))
+                # use keys reversed sorted to prevent clobbering
+                # substitutions, where $foos is overwritten by $foo before $foos
+                for var in reversed(sorted(env_vars.keys())):
+                    call = call.replace(str(var), str(env_vars[var]))
                 calls.append((call, call_mode))
 
             # name only
