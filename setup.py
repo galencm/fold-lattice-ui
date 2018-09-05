@@ -16,6 +16,7 @@ name="fold_ui",
     entry_points = {'console_scripts': ['ma-ui-fold = fold_ui.fold_lattice_ui:main',
                                         'fold-ui = fold_ui.fold_lattice_ui:main',
                                         'fold-ui-fairytale = fold_ui.fairy_tale:main',
+                                        'fold-ui-sequence = fold_ui.sequence_cli:main'
                                        ],
                             },
 )
