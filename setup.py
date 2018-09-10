@@ -11,7 +11,7 @@ setup(
     include_package_data=True,
     url="",
     packages=find_packages(),
-    install_requires=["kivy", "ma_cli", "keli"],
+    install_requires=["kivy", "ma_cli", "keli", "pre-commit"],
     dependency_links=[
         "https://github.com/galencm/ma-cli/tarball/master#egg=ma_cli-0.1",
         "https://github.com/galencm/machinic-keli/tarball/master#egg=keli-0.1",
