@@ -87,7 +87,7 @@ def structure_preview(
         overall_structure[s.primary_layout_key] = []
 
     cells = []
-    subsorted_cells = []
+    # subsorted_cells = []
 
     # allocate slots for broad structure by primary_keys
     # allocate / subsort if needed
@@ -134,12 +134,11 @@ def structure_preview(
                         if key == s.primary_layout_key:
                             prev = None
                             items = 0
-                            to_insert = []
                             for i, item in enumerate(
                                 overall_structure[s.primary_layout_key]
                             ):
                                 if item:
-                                    if prev != item[key] and prev != None:
+                                    if prev != item[key] and prev is not None:
                                         to_pad = column_slots - (items % column_slots)
                                         items = -1
                                         if to_pad == column_slots:
@@ -149,7 +148,7 @@ def structure_preview(
                                                 overall_structure[
                                                     s.primary_layout_key
                                                 ].insert(i, None)
-                                            except:
+                                            except Exception as ex:
                                                 pass
                                     items += 1
                                     prev = item[key]
@@ -159,7 +158,7 @@ def structure_preview(
                             for _ in range(to_pad):
                                 try:
                                     overall_structure[s.primary_layout_key].append(None)
-                                except:
+                                except Exception as ex:
                                     pass
 
                     if sparse_expected:
@@ -222,9 +221,9 @@ def structure_preview(
                     if sparse_found_from_zero or sparse_found:
                         try:
                             print(sparse_found, sparse_found_from_zero)
-                            sparse_found_begin = overall_structure[
-                                s.primary_layout_key
-                            ][0][key]
+                            # sparse_found_begin = overall_structure[
+                            #     s.primary_layout_key
+                            # ][0][key]
                             sparse_found_end = overall_structure[s.primary_layout_key][
                                 -1
                             ][key]
@@ -283,7 +282,7 @@ def structure_preview(
             pass
     # for k, v in overall_structure.items():
     #     sorted_cells.extend(v)
-    unmatched = [cell for cell in structure if not cell in matched]
+    unmatched = [cell for cell in structure if cell not in matched]
 
     # for crude implementation of continuity
     # see notes below
@@ -389,7 +388,6 @@ def structure_preview(
         for col in range(math.ceil(len(cells) / column_slots)):
             column_cells = []
             img = PILImage.new("RGB", (total_width, total_height), background_color)
-            draw = ImageDraw.Draw(img, "RGBA")
             x = 0
             y = 0
             row_pos = 0
@@ -424,7 +422,6 @@ def structure_preview(
         # print("structure_preview", structure, spec, palette, cells, total_width, total_height)
 
         img = PILImage.new("RGB", (total_width, total_height), background_color)
-        draw = ImageDraw.Draw(img, "RGBA")
         x = 0
         y = 0
         row_pos = 0
@@ -476,7 +473,7 @@ def cell_preview(
 
     try:
         margins = spec.cell_layout_margins
-    except:
+    except Exception as ex:
         pass
 
     # default colors used if spec and cell are None
@@ -502,7 +499,7 @@ def cell_preview(
     margin_names = ("top", "bottom", "left", "right")
 
     for margin_name in margin_names:
-        if not margin_name in margins:
+        if margin_name not in margins:
             margins[margin_name] = default_margin
 
     if regions is None:
@@ -584,7 +581,7 @@ def cell_preview(
                                         if meta == "overlay":
                                             try:
                                                 text = str(cell[field_name])
-                                            except:
+                                            except Exception as ex:
                                                 if overlay_placeholders is True:
                                                     text = str(field_name)
                                                 else:
@@ -626,7 +623,6 @@ def cell_preview(
         # discontinuous currently draws in center only
         for texture in textures:
             if texture == "discontinuous":
-                dy = 0
                 bar_width = 1
                 x1, y1, x2, y2 = cell_center()
                 for height_step in range(y1, y2, bar_width * 8):
@@ -634,7 +630,6 @@ def cell_preview(
                         (0, height_step, width, height_step + bar_width), fill="white"
                     )
             elif texture == "duplicate":
-                dx = 0
                 bar_width = 1
                 x1, y1, x2, y2 = cell_center()
                 for width_step in range(x1, x2, bar_width * 4):
@@ -692,25 +687,25 @@ def sequence_status(
 
     # fallback color schemes
     # catch 'None' and '*' for everything else
-    if not "None" in coloring:
+    if "None" not in coloring:
         coloring["None"] = {}
         coloring["None"]["fill"] = "darkgray"
         coloring["None"]["border"] = (135, 135, 135, 1)
     else:
-        if not "fill" in coloring["None"]:
+        if "fill" not in coloring["None"]:
             coloring["None"]["fill"] = "darkgray"
-        if not "border" in coloring["None"]:
+        if "border" not in coloring["None"]:
             coloring["None"]["border"] = (135, 135, 135, 1)
 
-    if not "*" in coloring:
+    if "*" not in coloring:
         coloring["*"] = {}
         coloring["*"]["fill"] = "lightgray"
         coloring["*"]["border"] = (223, 223, 223, 1)
     else:
-        if not "fill" in coloring["*"]:
+        if "fill" not in coloring["*"]:
             coloring["*"]["fill"] = "lightgray"
 
-        if not "border" in coloring["*"]:
+        if "border" not in coloring["*"]:
             coloring["*"]["border"] = (223, 223, 223, 1)
 
     status_tile = PILImage.new("RGB", (width, height), (155, 155, 155, 255))

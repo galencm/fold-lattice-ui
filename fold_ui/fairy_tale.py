@@ -226,7 +226,7 @@ def ingest_things(**kwargs):
         for field_name, span_amount, span_range in kwargs[
             "ingest_mislabel_span_integer"
         ]:
-            if not field_name in to_mislabel_span_integer:
+            if field_name not in to_mislabel_span_integer:
                 to_mislabel_span_integer[field_name] = []
             span_start = random.randint(0, int(span_range))
             # list is [start position, amount (to decrement), span_start_value]
@@ -237,7 +237,7 @@ def ingest_things(**kwargs):
         for field_name, span_amount, span_range in kwargs[
             "ingest_mislabel_span_badstr"
         ]:
-            if not field_name in to_mislabel_span_badstr:
+            if field_name not in to_mislabel_span_badstr:
                 to_mislabel_span_badstr[field_name] = []
             span_start = random.randint(0, int(span_range))
             # list is [start position, amount (to decrement), span_start_value]

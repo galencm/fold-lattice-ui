@@ -98,12 +98,12 @@ def parse_lines(
                         except KeyError:
                             pass
                 elif symbol == "==":
-                    if not line.field.name in source:
+                    if line.field.name not in source:
                         return None
 
                     try:
                         comparatee = line.comparatee.value
-                    except:
+                    except Exception as ex:
                         comparatee = line.comparatee
                     if source[line.field.name] == comparatee:
                         pass
@@ -115,7 +115,7 @@ def parse_lines(
                     # currently only for ints
                     try:
                         comparatee = line.comparatee.value
-                    except:
+                    except Exception as ex:
                         comparatee = line.comparatee
 
                     if int(source[line.field.name]) > int(comparatee):
@@ -126,7 +126,7 @@ def parse_lines(
                     # currently only for ints
                     try:
                         comparatee = line.comparatee.value
-                    except:
+                    except Exception as ex:
                         comparatee = line.comparatee
 
                     if int(source[line.field.name]) < int(comparatee):

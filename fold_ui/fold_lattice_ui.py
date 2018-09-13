@@ -6,7 +6,6 @@
 
 import random
 import io
-import random
 import itertools
 import os
 import json
@@ -142,7 +141,7 @@ class DropDownInput(TextInput):
             btn = Button(text=args[0].text, size_hint_y=None, height=44)
             self.drop_down.add_widget(btn)
             btn.bind(on_release=lambda btn: self.drop_down.select(btn.text))
-            if not "preload" in args:
+            if "preload" not in args:
                 self.not_preloaded.add(btn)
 
     def on_select(self, *args):
@@ -153,7 +152,6 @@ class DropDownInput(TextInput):
             if hasattr(btn, "text")
         ]:
             self.drop_down.append(Button(text=args[1]))
-            self.not_preloaded.add(btn)
         # call on_text_validate after selection
         # to avoid having to select textinput and press enter
         self.dispatch("on_text_validate")
@@ -407,12 +405,12 @@ class CellSpecItem(BoxLayout):
                     print(ex)
                     pass
 
-            if not widget.meta_option in self.cell_spec.cell_layout_meta:
+            if widget.meta_option not in self.cell_spec.cell_layout_meta:
                 self.cell_spec.cell_layout_meta[widget.meta_option] = []
             if (
-                not (widget.meta_option_value.text, widget.meta_option_area)
-                in self.cell_spec.cell_layout_meta[widget.meta_option]
-            ):
+                widget.meta_option_value.text,
+                widget.meta_option_area,
+            ) not in self.cell_spec.cell_layout_meta[widget.meta_option]:
                 self.cell_spec.cell_layout_meta[widget.meta_option].append(
                     (widget.meta_option_value.text, widget.meta_option_area)
                 )
@@ -421,7 +419,7 @@ class CellSpecItem(BoxLayout):
                 self.cell_spec.cell_layout_meta[widget.meta_option].remove(
                     (widget.meta_option_value.text, widget.meta_option_area)
                 )
-            except:
+            except Exception as ex:
                 pass
         # wrap in try/except to prevent error before
         # widget has a parent
@@ -469,7 +467,7 @@ class CellSpecItem(BoxLayout):
 
             # meta options
             for meta_option in ["primary", "sortby", "continuous", "overlay"]:
-                if not meta_option in similar:
+                if meta_option not in similar:
                     similar[meta_option] = []
                 meta_toggle = CheckBox()
                 meta_toggle.meta_option = meta_option
@@ -672,7 +670,7 @@ class SourcesPreview(BoxLayout):
             try:
                 source_position = self.sources_sequenced.index(source_uuid)
                 env_vars.update({"$SEQUENCE": source_position})
-            except:
+            except Exception as ex:
                 pass
 
         env_vars.update(self.stored_env_vars)
@@ -814,7 +812,7 @@ class SourcesPreview(BoxLayout):
             try:
                 key_expiration = source_modified.pop("META_DB_TTL")
                 key_expiration = int(key_expiration)
-            except:
+            except Exception as ex:
                 pass
 
             # remove any 'META_' prefixed keys before writing to db
@@ -835,7 +833,7 @@ class SourcesPreview(BoxLayout):
             for k, v in source.items():
                 try:
                     source[k] = int(v)
-                except:
+                except Exception as ex:
                     pass
 
         # dsl
@@ -857,7 +855,7 @@ class SourcesPreview(BoxLayout):
 
         for source in self.sources:
             for k, v in source.items():
-                if not k in self.source_field_possibilities:
+                if k not in self.source_field_possibilities:
                     self.source_field_possibilities[k] = set()
                 self.source_field_possibilities[k].add(v)
 
@@ -886,7 +884,7 @@ class SourcesPreview(BoxLayout):
                     try:
                         a = viewer_class[1](sample)
                         sample_row.add_widget(a)
-                    except:
+                    except Exception as ex:
                         sample_row.add_widget(Label(text="X"))
                 self.sources_overview.add_widget(sample_row)
                 self.sources_overview.height += sample_row.height
@@ -993,35 +991,6 @@ class ClickableImage(Image):
         return super().on_touch_down(touch)
 
     def on_touch_up(self, touch):
-
-        if touch.button == "right":
-            p = touch.pos
-            o = touch.opos
-            s = min(p[0], o[0]), min(p[1], o[1]), abs(p[0] - o[0]), abs(p[1] - o[1])
-            w = s[2]
-            h = s[3]
-            sx = s[0]
-            sy = s[1]
-            if abs(w) > 5 and abs(h) > 5:
-
-                if self.collide_point(touch.pos[0], touch.pos[1]):
-                    self.add_widget(Selection(pos=(sx, sy), size=(w, h)))
-                    print("added widget for ", self)
-                    print(self.texture_size, self.norm_image_size, self.size)
-                    width_scale = self.texture_size[0] / self.norm_image_size[0]
-                    height_scale = self.texture_size[1] / self.norm_image_size[1]
-                    width_offset = (self.size[0] - self.norm_image_size[0]) / 2
-                    print("touch", touch.pos, touch.opos)
-
-                    # touch.push()
-                    # touch.apply_transform_2d(self.to_local)
-                    # #touch.apply_transform_2d(self.to_local)
-                    # print("zzztouch",touch.pos,touch.opos)
-                    # touch.pop()
-                    print("window pos", self.to_window(*self.pos))
-
-                    print("touch", touch.pos, touch.opos)
-                    print("--------------")
         return super().on_touch_up(touch)
 
 
@@ -1125,7 +1094,7 @@ class ScriptViewViewerConfig(BoxLayout):
                     script_args["visible"] = False
                 script_thing = ScriptThing(**script_args)
                 self.aliased_scripts.append(script_thing)
-            except:
+            except Exception as ex:
                 pass
         self.update_aliases()
 
@@ -1276,7 +1245,7 @@ class ScriptViewViewer(BoxLayout):
                     background_color=[0, 1, 0, 1], duration=0.5
                 ) + Animation(background_color=current_background, duration=0.5)
                 anim.start(widget)
-            except:
+            except Exception as ex:
                 anim = Animation(
                     background_color=[1, 0, 0, 1], duration=0.5
                 ) + Animation(background_color=current_background, duration=0.5)
@@ -1320,7 +1289,7 @@ class ScriptViewViewer(BoxLayout):
         model = None
         try:
             model = keyling.model(self.script_input.text)
-        except:
+        except Exception as ex:
             pass
         return model
 
@@ -1401,9 +1370,9 @@ class EditViewViewer(BoxLayout):
         # it is added when source is retrieved and popped
         # before writing source
         self.fields_container = BoxLayout(orientation="vertical")
-        if not "META_DB_KEY" in view_source:
+        if "META_DB_KEY" not in view_source:
             view_source.update({"META_DB_KEY": str(uuid.uuid4())})
-        if not "META_DB_TTL" in view_source:
+        if "META_DB_TTL" not in view_source:
             view_source.update({"META_DB_TTL": str(-1)})
         self.update_field_rows()
         self.add_widget(self.fields_container)
@@ -1420,7 +1389,7 @@ class EditViewViewer(BoxLayout):
             pass
 
     def create_field(self, field, widget=None):
-        if not field in self.view_source:
+        if field not in self.view_source:
             self.view_source.update({field: ""})
             self.update_field_rows()
             if widget:
@@ -1482,7 +1451,7 @@ class EditViewViewer(BoxLayout):
                     widget.highlight.background_color = [0, 1, 0, 1]
                 else:
                     widget.highlight.background_color = [1, 1, 1, 1]
-            except:
+            except Exception as ex:
                 pass
 
     def update_field(self, field, value, widget=None):
@@ -1501,7 +1470,7 @@ class EditViewViewer(BoxLayout):
         # for now, still require enter to be pressed for META_
         # prefixed fields since it may disrupt values such as ttl
         for w in self.field_widgets:
-            if not "META_" in w.field_for:
+            if "META_" not in w.field_for:
                 self.update_field(w.field_for, w.text, w)
 
         key_to_write = self.view_source.pop("META_DB_KEY")
@@ -1509,7 +1478,7 @@ class EditViewViewer(BoxLayout):
         try:
             key_expiration = self.view_source.pop("META_DB_TTL")
             key_expiration = int(key_expiration)
-        except:
+        except Exception as ex:
             pass
 
         # remove any 'META_' prefixed keys before writing to db
@@ -1553,12 +1522,12 @@ class ImageViewViewerConfig(BoxLayout):
             try:
                 resolution = view.xpath("./@resolution")[0]
                 self.resolution_selection.text = resolution
-            except:
+            except Exception as ex:
                 pass
             try:
                 source_key = view.xpath("./@source_key")[0]
                 self.key_selection.text = source_key
-            except:
+            except Exception as ex:
                 pass
 
     def update_sources(self):
@@ -1717,7 +1686,7 @@ class ScriptHooks(BoxLayout):
                     background_color=[0, 1, 0, 1], duration=0.5
                 ) + Animation(background_color=current_background, duration=0.5)
                 anim.start(widget)
-            except:
+            except Exception as ex:
                 anim = Animation(
                     background_color=[1, 0, 0, 1], duration=0.5
                 ) + Animation(background_color=current_background, duration=0.5)
@@ -1728,7 +1697,7 @@ class ScriptHooks(BoxLayout):
         model = None
         try:
             model = keyling.model(self.script_input.text)
-        except:
+        except Exception as ex:
             pass
         return model
 
@@ -1791,7 +1760,7 @@ class StructurePreview(BoxLayout):
             check_parameter_widget.text = check_parameter
             check_parameter_widget.bind(active=self.set_check_parameter)
             try:
-                if self.parameters[check_parameter] == True:
+                if self.parameters[check_parameter] is True:
                     check_parameter_widget.active = BooleanProperty(True)
             except Exception as ex:
                 pass
@@ -1805,12 +1774,12 @@ class StructurePreview(BoxLayout):
 
     def update_parameter_widgets(self):
         # by default sources are toggled visible
-        if not "sources" in self.parameters:
+        if "sources" not in self.parameters:
             self.parameters["sources"] = True
 
         for widget in self.checkbox_widgets:
             try:
-                if self.parameters[widget.text] == True:
+                if self.parameters[widget.text] is True:
                     if not widget.active:
                         widget.active = BooleanProperty(True)
             except Exception as ex:
@@ -1832,7 +1801,7 @@ class StructurePreview(BoxLayout):
     def set_parameter(self, parameter, value):
         try:
             self.parameters[parameter] = int(value)
-        except:
+        except Exception as ex:
             pass
         self.generate_structure_preview(parameters=self.parameters)
 
@@ -1860,11 +1829,11 @@ class StructurePreview(BoxLayout):
         if parameters is None:
             parameters = {}
         sources = []
-        specs = self.spec_source()
+        # specs = self.spec_source()
         try:
             if self.parameters["sources"]:
                 sources = self.source_source.sources
-        except:
+        except Exception as ex:
             pass
 
         if not sources:
@@ -1899,11 +1868,11 @@ class StructurePreview(BoxLayout):
         if parameters is None:
             parameters = {}
         sources = []
-        specs = self.spec_source()
+        # specs = self.spec_source()
         try:
             if self.parameters["sources"]:
                 sources = self.source_source.sources
-        except:
+        except Exception as ex:
             pass
 
         return structure_preview(
@@ -1978,7 +1947,7 @@ class PaletteThingContainer(BoxLayout):
             for palette_name in sorted(
                 self.app.session["sources"].source_field_possibilities.keys()
             ):
-                if not palette_name in [
+                if palette_name not in [
                     palette_thing.palette_thing.name for palette_thing in self.children
                 ]:
                     self.add_palette_thing(
@@ -2000,7 +1969,7 @@ class PaletteThingContainer(BoxLayout):
                                 palette_thing.palette_thing.name
                             ]
                         ):
-                            if not possibility in [
+                            if possibility not in [
                                 colormap.name
                                 for colormap in palette_thing.palette_thing.possibilities
                             ]:
@@ -2123,14 +2092,14 @@ class PaletteThingItem(BoxLayout):
             possibility.order_value = float(order)
             self.generate_palette_overview()
             self.broadcast_update()
-        except:
+        except Exception as ex:
             pass
 
     def set_order(self, order, widget=None):
         try:
             self.palette_thing.order_value = float(order)
             self.broadcast_update()
-        except:
+        except Exception as ex:
             pass
 
     def set_rough_amount(self, amount, thing):
@@ -2189,7 +2158,7 @@ class AccordionItemThing(AccordionItem):
         to_remove = []
         for item in self.thing.image_grid.children:
             try:
-                if not item.view_source in self.sources:
+                if item.view_source not in self.sources:
                     to_remove.append(item)
                 elif (
                     item.config_hash
@@ -2221,7 +2190,7 @@ class AccordionItemThing(AccordionItem):
         for source_index, source in enumerate(reversed(self.sources)):
             try:
                 if source is not None:
-                    if not source in [
+                    if source not in [
                         item.view_source for item in self.thing.image_grid.children
                     ]:
                         try:
@@ -2564,7 +2533,7 @@ class AccordionContainer(Accordion):
         try:
             widget.thing.image_grid.cols = columns
             widget.thing.image_grid.rows = rows
-        except:
+        except Exception as ex:
             pass
 
     def contents_grow_columns(self):
@@ -2607,7 +2576,7 @@ class AccordionContainer(Accordion):
                     self.children[i + 1].collapse = False
                     c.collapse = True
                     break
-                except:
+                except Exception as ex:
                     self.children[0].collapse = False
                     c.collapse = True
                     break
@@ -2685,21 +2654,21 @@ class ScatterTextWidget(BoxLayout):
             s = min(p[0], o[0]), min(p[1], o[1]), abs(p[0] - o[0]), abs(p[1] - o[1])
             w = s[2]
             h = s[3]
-            sx = s[0]
-            sy = s[1]
+            # sx = s[0]
+            # sy = s[1]
             # only lower left to upper right works for clicking...
             # w and h have to both be positive
             if abs(w) > 5 and abs(h) > 5:
                 if w < 0 or h < 0:
                     # self.float_layer.add_widget(Selection(pos=(abs(w), abs(h)), on_press=self.foo,size=touch.opos))
                     # self.float_layer.add_widget(Selection(pos=(abs(w), abs(h)),size=touch.opos))
-                    ###self.float_layer.add_widget(Selection(pos=(sx,sy),size=(w, h)))
+                    # self.float_layer.add_widget(Selection(pos=(sx,sy),size=(w, h)))
                     pass
                 else:
                     # touch.pos  = p
                     # touch.opos = o
                     # min(p[0],o[0]), min(p[1],o[1]), abs(p[0]-o[0]), abs(p[1]-o[1])
-                    ###self.float_layer.add_widget(Selection(pos=(sx,sy),size=(w, h)))
+                    # self.float_layer.add_widget(Selection(pos=(sx,sy),size=(w, h)))
                     # self.float_layer.add_widget(Selection(pos=touch.opos, on_press=self.foo,size=(w, h)))
                     pass
         return super(ScatterTextWidget, self).on_touch_up(touch)
@@ -3067,9 +3036,6 @@ class FoldedInlayApp(App):
         for file in self.xml_files_to_load:
             files_to_restore.append(file)
 
-        session_xml = {}
-        project_xml = {}
-
         for file in files_to_restore:
             self.load_xml(file)
 
@@ -3171,13 +3137,13 @@ class FoldedInlayApp(App):
                                 value = str(element.xpath("./@value")[0])
                                 try:
                                     value = int(value)
-                                except:
+                                except Exception as ex:
                                     pass
                                 if value == "None":
                                     value = None
                                 cellspec_args["cell_" + mapname][name] = value
                             except IndexError as ex:
-                                if not name in cellspec_args["cell_" + mapname]:
+                                if name not in cellspec_args["cell_" + mapname]:
                                     cellspec_args["cell_" + mapname][name] = []
                                 if not cellspec_args["cell_" + mapname][name]:
                                     cellspec_args["cell_" + mapname][name] = []
@@ -3185,10 +3151,9 @@ class FoldedInlayApp(App):
                                 for item in element:
                                     item_name = str(item.xpath("./@name")[0])
                                     item_area = str(item.xpath("./@area")[0])
-                                    if (
-                                        not (item_area, item_name)
-                                        in cellspec_args["cell_" + mapname][name]
-                                    ):
+                                    if (item_area, item_name) not in cellspec_args[
+                                        "cell_" + mapname
+                                    ][name]:
                                         cellspec_args["cell_" + mapname][name].append(
                                             (item_area, item_name)
                                         )
@@ -3203,7 +3168,7 @@ class FoldedInlayApp(App):
                         value = structure.get(attrib)
                         try:
                             value = int(value)
-                        except:
+                        except Exception as ex:
                             pass
                         if value == "True":
                             value = True
