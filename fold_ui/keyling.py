@@ -10,7 +10,7 @@ import subprocess
 import shlex
 
 path = os.path.dirname(os.path.realpath(__file__))
-keyling_metamodel = metamodel_from_file(os.path.join(path, "keyling.tx"))
+keyling_metamodel = metamodel_from_file(os.path.join(path, 'keyling.tx'))
 
 # comma endings and quoting inspired by zeroscript:
 # https://github.com/hintjens/zs
@@ -22,7 +22,7 @@ keyling_metamodel = metamodel_from_file(os.path.join(path, "keyling.tx"))
 # [rotated] = 90,                 # set source[rotated] to 90
 # )                               # write source values to db
 #
-# If any statements evaluate False,
+# If any statements evaluate False, 
 #   * break out of () block
 #   * do not make any shell calls or write changes
 #
@@ -33,24 +33,15 @@ keyling_metamodel = metamodel_from_file(os.path.join(path, "keyling.tx"))
 #
 # strings are <"some string">  instead of <some string> until model is improved
 
-
 def model(text):
     model = keyling_metamodel.model_from_str(text)
     return model
 
-
-def parse_lines(
-    model,
-    source,
-    source_key,
-    allow_shell_calls=False,
-    env_vars=None,
-    source_updates=None,
-):
+def parse_lines(model, source, source_key, allow_shell_calls=False, env_vars=None, source_updates=None):
     if env_vars is None:
         env_vars = {}
     # include source keys as env vars by prefixing a $
-    env_vars.update({"${}".format(k): v for k, v in source.items()})
+    env_vars.update({"${}".format(k) : v for k, v in source.items()})
     for function in model.functions:
         for line in function.lines:
             if line.shellcall:
@@ -70,13 +61,11 @@ def parse_lines(
                 # call immediately to allow env_vars to be updated
                 # between results of shell calls
                 if allow_shell_calls:
-                    print("calling: ", call, call_mode)
+                    print("calling: ",call, call_mode)
                     print(call_mode(shlex.split(call)))
                 # try to run the source_updates function which should return a dictionary
                 try:
-                    env_vars.update(
-                        {"${}".format(k): v for k, v in source_updates().items()}
-                    )
+                    env_vars.update({"${}".format(k) : v for k, v in source_updates().items()})
                     print("updated from source_updates: ", env_vars)
                 except Exception as ex:
                     pass
@@ -98,24 +87,24 @@ def parse_lines(
                         except KeyError:
                             pass
                 elif symbol == "==":
-                    if line.field.name not in source:
+                    if not line.field.name in source:
                         return None
 
                     try:
                         comparatee = line.comparatee.value
-                    except Exception as ex:
+                    except:
                         comparatee = line.comparatee
                     if source[line.field.name] == comparatee:
                         pass
                     else:
                         return None
                 elif symbol == "=":
-                    source.update({line.field.name: line.comparatee})
+                    source.update({line.field.name : line.comparatee})
                 elif symbol == ">":
                     # currently only for ints
                     try:
                         comparatee = line.comparatee.value
-                    except Exception as ex:
+                    except:
                         comparatee = line.comparatee
 
                     if int(source[line.field.name]) > int(comparatee):
@@ -126,7 +115,7 @@ def parse_lines(
                     # currently only for ints
                     try:
                         comparatee = line.comparatee.value
-                    except Exception as ex:
+                    except:
                         comparatee = line.comparatee
 
                     if int(source[line.field.name]) < int(comparatee):
@@ -135,11 +124,10 @@ def parse_lines(
                         return None
     return source
 
-
 def example():
 
     example_keyling_strings = [
-        """
+    """
     (
     [rotated] not,
     [device] == <"capture1">,
@@ -147,21 +135,20 @@ def example():
     [rotated] = 90,
     )
     """,
-        """
+
+    """
     (
     [device] == <"capture1">,
     [equality] = 1,
     )
-    """,
+    """
     ]
 
     for script in example_keyling_strings:
         m = model(script)
 
-        sources = [
-            {"device": "capture1", "META_DB_KEY": "foo:1"},
-            {"device": "capture2", "rotated": 90, "META_DB_KEY": "foo:2"},
-        ]
+        sources = [{"device" : "capture1", "META_DB_KEY" : "foo:1"},
+                   {"device" : "capture2", "rotated": 90, "META_DB_KEY" : "foo:2"}]
 
         for source in sources:
             print(source)
