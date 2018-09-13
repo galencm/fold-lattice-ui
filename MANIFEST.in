@@ -1,4 +1,6 @@
 include LICENSE.txt
+include README.md
+include CONTRIBUTING.md
 
 include fold_ui/keyling.tx
 include fold_ui/keyling_spec.txt
