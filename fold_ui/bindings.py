@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2018, Galen Curwen-McAdams
 
+
 def keybindings():
     actions = {}
     # app always handled
